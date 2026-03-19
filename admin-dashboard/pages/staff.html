@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>إدارة الموظفين - AutoMarket DZ</title>
+    <link rel="stylesheet" href="../css/admin.css">
+    <style>
+        .staff-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .staff-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; margin-bottom: 24px; }
+        .staff-card {
+            background: var(--white); border-radius: var(--radius); box-shadow: var(--shadow); padding: 20px;
+            border-right: 4px solid var(--primary); transition: transform 0.2s;
+        }
+        .staff-card:hover { transform: translateY(-2px); }
+        .staff-card.admin-role { border-right-color: var(--danger); }
+        .staff-card.employee-role { border-right-color: var(--warning); }
+        .staff-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+        .staff-card-header h4 { font-size: 15px; }
+        .staff-info { font-size: 13px; color: var(--gray); }
+        .staff-info p { margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+        .staff-actions { display: flex; gap: 6px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+
+        .modal-overlay {
+            display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;
+        }
+        .modal-overlay.active { display: flex; }
+        .modal {
+            background: var(--white); border-radius: var(--radius); padding: 24px; width: 90%; max-width: 480px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        .modal h3 { font-size: 18px; margin-bottom: 20px; display: flex; align-items: center; gap: 8px; }
+        .modal .form-group { margin-bottom: 14px; }
+        .modal .form-group label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+        .modal .form-group input, .modal .form-group select {
+            width: 100%; padding: 10px 14px; border: 1px solid var(--border); border-radius: 6px; font-size: 14px;
+        }
+        .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; }
+        .founder-badge {
+            background: linear-gradient(135deg, #F59E0B, #D97706);
+            color: white; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 700;
+        }
+    </style>
+</head>
+<body>
+<div class="dashboard-layout">
+    <aside class="sidebar"></aside>
+    <main class="main-content">
+        <div class="topbar">
+            <h1>🛡️ إدارة الموظفين</h1>
+            <button class="btn btn-primary" onclick="openModal()">➕ إضافة موظف</button>
+        </div>
+        <div class="page-content">
+            <div class="staff-grid" id="staff-grid">
+                <div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--gray);">جاري التحميل...</div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<!-- Add/Edit Modal -->
+<div class="modal-overlay" id="modal">
+    <div class="modal">
+        <h3 id="modal-title">➕ إضافة موظف جديد</h3>
+        <input type="hidden" id="editId">
+        <div class="form-group">
+            <label>البريد الإلكتروني</label>
+            <input type="email" id="staffEmail" placeholder="email@example.com">
+        </div>
+        <div class="form-group">
+            <label>الاسم الأول</label>
+            <input type="text" id="staffFirstName" placeholder="الاسم الأول">
+        </div>
+        <div class="form-group">
+            <label>اسم العائلة</label>
+            <input type="text" id="staffLastName" placeholder="اسم العائلة">
+        </div>
+        <div class="form-group">
+            <label>رقم الهاتف</label>
+            <input type="tel" id="staffPhone" placeholder="+213...">
+        </div>
+        <div class="form-group">
+            <label>كلمة المرور <span id="pwd-hint" style="font-weight:normal;color:var(--gray);font-size:11px;">(اتركها فارغة للإبقاء على الحالية)</span></label>
+            <input type="password" id="staffPassword" placeholder="كلمة المرور">
+        </div>
+        <div class="form-group">
+            <label>الدور</label>
+            <select id="staffRole">
+                <option value="employee">موظف</option>
+                <option value="admin">مدير</option>
+            </select>
+        </div>
+        <div class="modal-actions">
+            <button class="btn btn-outline" onclick="closeModal()">إلغاء</button>
+            <button class="btn btn-primary" onclick="saveStaff()">💾 حفظ</button>
+        </div>
+    </div>
+</div>
+
+<script src="../js/admin.js"></script>
+<script>
+    const authData = checkAuth();
+    if (authData) {
+        // Only founder can access this page
+        if (authData.user.role !== 'founder') {
+            window.location.href = '../index.html';
+        } else {
+            renderSidebar('staff');
+            loadStaff();
+        }
+    }
+
+    async function loadStaff() {
+        try {
+            const data = await apiRequest('/admin/staff');
+            const staff = data.staff || [];
+            const grid = document.getElementById('staff-grid');
+
+            if (staff.length === 0) {
+                grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--gray);">📭 لا يوجد موظفين بعد. أضف موظفاً جديداً.</div>';
+                return;
+            }
+
+            grid.innerHTML = staff.map(s => `
+                <div class="staff-card ${s.role}-role">
+                    <div class="staff-card-header">
+                        <h4>${s.first_name} ${s.last_name}</h4>
+                        ${getRoleBadge(s.role)}
+                    </div>
+                    <div class="staff-info">
+                        <p>📧 ${s.email}</p>
+                        <p>📱 ${s.phone || '-'}</p>
+                        <p>📅 انضم في ${formatDate(s.created_at)}</p>
+                        <p>${s.is_active ? '<span style="color:green;">● نشط</span>' : '<span style="color:red;">● معطل</span>'}</p>
+                    </div>
+                    <div class="staff-actions">
+                        <button class="btn btn-sm btn-outline" onclick='editStaff(${JSON.stringify(s)})'>✏️ تعديل</button>
+                        <button class="btn btn-sm ${s.is_active ? 'btn-warning' : 'btn-success'}" onclick="toggleActive('${s.id}', ${!s.is_active})">${s.is_active ? '⏸️ تعطيل' : '✅ تفعيل'}</button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteStaff('${s.id}')">🗑️ حذف</button>
+                    </div>
+                </div>
+            `).join('');
+        } catch (err) {
+            document.getElementById('staff-grid').innerHTML =
+                '<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--danger);">فشل تحميل قائمة الموظفين: ' + err.message + '</div>';
+        }
+    }
+
+    function openModal(staff = null) {
+        document.getElementById('modal').classList.add('active');
+        document.getElementById('modal-title').textContent = staff ? '✏️ تعديل الموظف' : '➕ إضافة موظف جديد';
+        document.getElementById('pwd-hint').style.display = staff ? 'inline' : 'none';
+
+        if (staff) {
+            document.getElementById('editId').value = staff.id;
+            document.getElementById('staffEmail').value = staff.email;
+            document.getElementById('staffFirstName').value = staff.first_name;
+            document.getElementById('staffLastName').value = staff.last_name;
+            document.getElementById('staffPhone').value = staff.phone || '';
+            document.getElementById('staffPassword').value = '';
+            document.getElementById('staffRole').value = staff.role;
+        } else {
+            document.getElementById('editId').value = '';
+            document.getElementById('staffEmail').value = '';
+            document.getElementById('staffFirstName').value = '';
+            document.getElementById('staffLastName').value = '';
+            document.getElementById('staffPhone').value = '';
+            document.getElementById('staffPassword').value = '';
+            document.getElementById('staffRole').value = 'employee';
+        }
+    }
+
+    function closeModal() {
+        document.getElementById('modal').classList.remove('active');
+    }
+
+    function editStaff(staff) {
+        openModal(staff);
+    }
+
+    async function saveStaff() {
+        const editId = document.getElementById('editId').value;
+        const body = {
+            email: document.getElementById('staffEmail').value.trim(),
+            first_name: document.getElementById('staffFirstName').value.trim(),
+            last_name: document.getElementById('staffLastName').value.trim(),
+            phone: document.getElementById('staffPhone').value.trim(),
+            role: document.getElementById('staffRole').value,
+        };
+        const password = document.getElementById('staffPassword').value;
+        if (password) body.password = password;
+
+        if (!body.email || !body.first_name || !body.last_name) {
+            showNotification('يرجى ملء جميع الحقول المطلوبة', 'error');
+            return;
+        }
+        if (!editId && !password) {
+            showNotification('كلمة المرور مطلوبة للموظف الجديد', 'error');
+            return;
+        }
+
+        try {
+            if (editId) {
+                await apiRequest(`/admin/staff/${editId}`, {
+                    method: 'PUT',
+                    body: JSON.stringify(body),
+                });
+                showNotification('تم تعديل الموظف بنجاح');
+            } else {
+                await apiRequest('/admin/staff', {
+                    method: 'POST',
+                    body: JSON.stringify(body),
+                });
+                showNotification('تم إضافة الموظف بنجاح');
+            }
+            closeModal();
+            loadStaff();
+        } catch (err) {
+            showNotification('خطأ: ' + err.message, 'error');
+        }
+    }
+
+    async function toggleActive(id, newState) {
+        try {
+            await apiRequest(`/admin/staff/${id}`, {
+                method: 'PUT',
+                body: JSON.stringify({ is_active: newState }),
+            });
+            showNotification(newState ? 'تم تفعيل الموظف' : 'تم تعطيل الموظف');
+            loadStaff();
+        } catch (err) {
+            showNotification('خطأ: ' + err.message, 'error');
+        }
+    }
+
+    async function deleteStaff(id) {
+        if (!confirmAction('هل أنت متأكد من حذف هذا الموظف؟')) return;
+        try {
+            await apiRequest(`/admin/staff/${id}`, { method: 'DELETE' });
+            showNotification('تم حذف الموظف');
+            loadStaff();
+        } catch (err) {
+            showNotification('خطأ: ' + err.message, 'error');
+        }
+    }
+</script>
+</body>
+</html>

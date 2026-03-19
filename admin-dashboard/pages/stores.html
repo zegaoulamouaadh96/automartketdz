@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>إدارة المتاجر - AutoMarket DZ</title>
+    <link rel="stylesheet" href="../css/admin.css">
+</head>
+<body>
+<div class="dashboard-layout">
+    <aside class="sidebar"></aside>
+    <main class="main-content">
+        <div class="topbar">
+            <h1>🏪 إدارة المتاجر</h1>
+            <div class="topbar-actions">
+                <select id="statusFilter" class="search-input" onchange="loadStores(1)">
+                    <option value="">كل الحالات</option>
+                    <option value="active">نشطة</option>
+                    <option value="pending">بانتظار الموافقة</option>
+                    <option value="blocked">محظورة</option>
+                </select>
+                <input type="text" id="searchInput" class="search-input" placeholder="بحث عن متجر..." oninput="clearTimeout(window._st);window._st=setTimeout(()=>loadStores(1),400)">
+            </div>
+        </div>
+        <div class="page-content">
+            <div class="stats-grid">
+                <div class="stat-card"><div class="stat-icon green">🏪</div><h3 id="activeStores">-</h3><p>متاجر نشطة</p></div>
+                <div class="stat-card"><div class="stat-icon orange">⏳</div><h3 id="pendingStores">-</h3><p>بانتظار الموافقة</p></div>
+                <div class="stat-card"><div class="stat-icon red">🚫</div><h3 id="blockedStores">-</h3><p>متاجر محظورة</p></div>
+            </div>
+
+            <div class="table-container">
+                <div class="table-header">
+                    <h3>قائمة المتاجر</h3>
+                    <span id="storeTotal" style="font-size:13px;color:var(--gray);"></span>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>المتجر</th>
+                            <th>صاحب المتجر</th>
+                            <th>الولاية</th>
+                            <th>المنتجات</th>
+                            <th>التقييم</th>
+                            <th>الحالة</th>
+                            <th>الإنشاء</th>
+                            <th>الإجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody id="storesTable"><tr><td colspan="8"><div class="loading-spinner"></div></td></tr></tbody>
+                </table>
+            </div>
+            <div id="pagination"></div>
+        </div>
+    </main>
+</div>
+<div id="storeModal" style="display:none;"></div>
+<script src="../js/admin.js"></script>
+<script>
+    const auth = checkAuth();
+    if (auth) { renderSidebar('stores'); loadStores(1); }
+
+    async function loadStores(page = 1) {
+        const search = document.getElementById('searchInput').value;
+        const status = document.getElementById('statusFilter').value;
+        try {
+            const params = new URLSearchParams({ page, limit: 20 });
+            if (search) params.append('search', search);
+            if (status) params.append('status', status);
+            const res = await apiRequest(`/admin/stores?${params}`);
+            const stores = res.data || res.stores || [];
+
+            if (res.stats) {
+                document.getElementById('activeStores').textContent = formatNumber(res.stats.active || 0);
+                document.getElementById('pendingStores').textContent = formatNumber(res.stats.pending || 0);
+                document.getElementById('blockedStores').textContent = formatNumber(res.stats.blocked || 0);
+            }
+
+            document.getElementById('storeTotal').textContent = `عرض ${stores.length} من ${res.pagination?.total || stores.length}`;
+
+            document.getElementById('storesTable').innerHTML = stores.map(s => {
+                const ownerName = s.owner_name || (s.owner_first_name ? s.owner_first_name + ' ' + s.owner_last_name : '-');
+                return `
+                <tr>
+                    <td>
+                        <div style="display:flex;align-items:center;gap:10px;">
+                            ${s.logo ? `<img src="${getImageUrl(s.logo)}" onerror="this.style.display='none'" style="width:36px;height:36px;border-radius:8px;object-fit:cover;" alt="">` : 
+                            `<div style="width:36px;height:36px;border-radius:8px;background:var(--primary-light);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;">🏪</div>`}
+                            <strong>${s.name}</strong>
+                        </div>
+                    </td>
+                    <td style="font-size:13px;">${ownerName}</td>
+                    <td>${s.wilaya || '-'}</td>
+                    <td><strong>${s.product_count || 0}</strong></td>
+                    <td>⭐ ${Number(s.rating || 0).toFixed(1)}</td>
+                    <td>${getStatusBadge(s.is_active ? 'active' : 'inactive')}</td>
+                    <td style="font-size:12px;color:var(--gray);">${timeAgo(s.created_at)}</td>
+                    <td>
+                        <div style="display:flex;gap:4px;">
+                            <button class="btn btn-sm btn-outline" onclick="viewStore('${s.id}')" title="تفاصيل">👁️</button>
+                            ${s.is_active
+                                ? `<button class="btn btn-sm btn-danger" onclick="toggleStore('${s.id}', false)" title="تعطيل">🚫</button>`
+                                : `<button class="btn btn-sm btn-success" onclick="toggleStore('${s.id}', true)" title="تفعيل">✅</button>`}
+                        </div>
+                    </td>
+                </tr>`;
+            }).join('');
+
+            if (stores.length === 0) showEmpty('storesTable', '🏪', 'لا يوجد متاجر', 'لم يتم العثور على متاجر بهذه المعايير');
+            if (res.pagination) renderPagination('pagination', res.pagination, 'loadStores');
+        } catch (err) {
+            showNotification(err.message, 'error');
+        }
+    }
+
+    async function viewStore(id) {
+        try {
+            const res = await apiRequest(`/admin/stores/${id}`);
+            const s = res.data || res.store || res;
+            const ownerName = s.owner_name || (s.owner_first_name ? s.owner_first_name + ' ' + s.owner_last_name : '-');
+            document.getElementById('storeModal').style.display = '';
+            document.getElementById('storeModal').innerHTML = `
+                <div class="modal-overlay" onclick="closeModal()">
+                    <div class="modal" onclick="event.stopPropagation()" style="max-width:620px;">
+                        <h2 style="display:flex;justify-content:space-between;align-items:center;">
+                            تفاصيل المتجر
+                            <button class="btn btn-sm btn-outline" onclick="closeModal()">✕</button>
+                        </h2>
+                        <div style="display:flex;align-items:center;gap:16px;padding:16px;background:var(--gray-light);border-radius:var(--radius);margin-bottom:16px;">
+                            ${s.logo ? `<img src="${getImageUrl(s.logo)}" onerror="this.parentElement.querySelector('div').style.display='flex'" style="width:48px;height:48px;border-radius:10px;object-fit:cover;" alt="">` : ''}
+                            <div style="${s.logo ? '' : 'width:48px;height:48px;border-radius:10px;background:var(--primary-light);display:flex;align-items:center;justify-content:center;font-size:22px;'}">
+                                ${s.logo ? '' : '🏪'}
+                            </div>
+                            <div>
+                                <h3 style="margin:0;">${s.name}</h3>
+                                <div>${getStatusBadge(s.is_active ? 'active' : 'inactive')}</div>
+                            </div>
+                        </div>
+                        <div class="detail-row"><span>صاحب المتجر</span><span>${ownerName}</span></div>
+                        <div class="detail-row"><span>الولاية / المدينة</span><span>${s.wilaya || '-'} / ${s.city || '-'}</span></div>
+                        <div class="detail-row"><span>العنوان</span><span>${s.address || '-'}</span></div>
+                        <div class="detail-row"><span>الهاتف</span><span>${s.phone || '-'}</span></div>
+                        <div class="detail-row"><span>عدد المنتجات</span><span><strong>${s.product_count || 0}</strong></span></div>
+                        <div class="detail-row"><span>التقييم</span><span>⭐ ${Number(s.rating || s.avg_rating || 0).toFixed(1)} (${s.review_count || 0} تقييم)</span></div>
+                        ${s.total_orders !== undefined ? `<div class="detail-row"><span>إجمالي الطلبات</span><span><strong>${s.total_orders}</strong></span></div>` : ''}
+                        ${s.revenue !== undefined ? `<div class="detail-row"><span>الإيرادات</span><span style="font-weight:700;color:var(--primary);">${formatPrice(s.revenue)}</span></div>` : ''}
+                        <div class="detail-row"><span>تاريخ الإنشاء</span><span>${formatDateTime(s.created_at)}</span></div>
+                        ${s.description ? `<div style="margin-top:12px;"><label style="font-size:13px;color:var(--gray);display:block;margin-bottom:4px;">الوصف</label><p style="font-size:14px;line-height:1.6;background:var(--gray-light);padding:12px;border-radius:8px;">${s.description}</p></div>` : ''}
+                        
+                        <div style="display:flex;gap:10px;margin-top:20px;padding-top:16px;border-top:1px solid var(--border);">
+                            ${s.is_active
+                                ? `<button class="btn btn-danger" onclick="toggleStore('${s.id}', false); closeModal()">🚫 تعطيل المتجر</button>`
+                                : `<button class="btn btn-success" onclick="toggleStore('${s.id}', true); closeModal()">✅ تفعيل المتجر</button>`}
+                            <button class="btn btn-danger" onclick="deleteStore('${s.id}')">🗑️ حذف</button>
+                        </div>
+                    </div>
+                </div>`;
+        } catch (err) {
+            showNotification(err.message, 'error');
+        }
+    }
+
+    async function toggleStore(id, activate) {
+        if (!confirmAction(activate ? 'هل تريد تفعيل هذا المتجر؟' : 'هل تريد تعطيل هذا المتجر؟')) return;
+        try {
+            await apiRequest(`/admin/stores/${id}/status`, {
+                method: 'PUT',
+                body: JSON.stringify({ is_active: activate })
+            });
+            showNotification(activate ? 'تم تفعيل المتجر' : 'تم تعطيل المتجر');
+            loadStores();
+        } catch (err) {
+            showNotification(err.message, 'error');
+        }
+    }
+
+    async function deleteStore(id) {
+        if (!confirmAction('هل أنت متأكد من حذف هذا المتجر؟ هذا الإجراء لا يمكن التراجع عنه.')) return;
+        try {
+            await apiRequest(`/admin/stores/${id}`, { method: 'DELETE' });
+            showNotification('تم حذف المتجر بنجاح');
+            closeModal();
+            loadStores();
+        } catch (err) {
+            showNotification(err.message, 'error');
+        }
+    }
+
+    function closeModal() {
+        document.getElementById('storeModal').style.display = 'none';
+    }
+</script>
+</body>
+</html>

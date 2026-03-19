@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>لوحة الإدارة - AutoMarket DZ</title>
+    <link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+<div class="dashboard-layout">
+    <aside class="sidebar"></aside>
+    <main class="main-content">
+        <div class="topbar">
+            <h1>📊 لوحة القيادة</h1>
+            <div class="topbar-actions">
+                <span id="lastRefresh" style="font-size:12px;color:var(--gray);"></span>
+                <button class="btn btn-outline btn-sm" onclick="loadDashboard()">🔄 تحديث</button>
+                <span id="adminName" style="font-weight:600;"></span>
+            </div>
+        </div>
+        <div class="page-content">
+
+            <!-- Stats Row 1 -->
+            <div class="stats-grid" id="mainStats">
+                <div class="stat-card">
+                    <div class="stat-icon orange">👥</div>
+                    <h3 id="totalUsers">-</h3>
+                    <p>إجمالي المستخدمين</p>
+                    <div class="stat-change up" id="todayUsers"></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon blue">🏪</div>
+                    <h3 id="totalStores">-</h3>
+                    <p>المتاجر النشطة</p>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon green">📦</div>
+                    <h3 id="totalProducts">-</h3>
+                    <p>المنتجات</p>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon red">🛒</div>
+                    <h3 id="totalOrders">-</h3>
+                    <p>إجمالي الطلبات</p>
+                    <div class="stat-change up" id="todayOrders"></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon purple">💰</div>
+                    <h3 id="totalRevenue">-</h3>
+                    <p>إجمالي الإيرادات</p>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon yellow">⚠️</div>
+                    <h3 id="pendingReportsCount">-</h3>
+                    <p>بلاغات معلقة</p>
+                </div>
+            </div>
+
+            <!-- Orders Status Mini Cards -->
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin-bottom:24px;" id="orderStatusCards">
+                <div class="card" style="padding:14px;margin:0;text-align:center;">
+                    <div style="font-size:11px;color:var(--gray);margin-bottom:4px;">⏳ بانتظار</div>
+                    <div style="font-size:22px;font-weight:700;color:#F59E0B;" id="ordersPending">0</div>
+                </div>
+                <div class="card" style="padding:14px;margin:0;text-align:center;">
+                    <div style="font-size:11px;color:var(--gray);margin-bottom:4px;">📦 قيد التحضير</div>
+                    <div style="font-size:22px;font-weight:700;color:#3B82F6;" id="ordersProcessing">0</div>
+                </div>
+                <div class="card" style="padding:14px;margin:0;text-align:center;">
+                    <div style="font-size:11px;color:var(--gray);margin-bottom:4px;">🚚 تم الشحن</div>
+                    <div style="font-size:22px;font-weight:700;color:#8B5CF6;" id="ordersShipped">0</div>
+                </div>
+                <div class="card" style="padding:14px;margin:0;text-align:center;">
+                    <div style="font-size:11px;color:var(--gray);margin-bottom:4px;">✅ تم التوصيل</div>
+                    <div style="font-size:22px;font-weight:700;color:#10B981;" id="ordersDelivered">0</div>
+                </div>
+                <div class="card" style="padding:14px;margin:0;text-align:center;">
+                    <div style="font-size:11px;color:var(--gray);margin-bottom:4px;">❌ ملغي</div>
+                    <div style="font-size:22px;font-weight:700;color:#EF4444;" id="ordersCancelled">0</div>
+                </div>
+            </div>
+
+            <!-- Tables Grid -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+                <div class="table-container">
+                    <div class="table-header">
+                        <h3>🛒 آخر الطلبات</h3>
+                        <a href="pages/orders.html" class="btn btn-outline btn-sm">عرض الكل</a>
+                    </div>
+                    <table>
+                        <thead><tr><th>رقم الطلب</th><th>المشتري</th><th>المبلغ</th><th>الحالة</th><th>التاريخ</th></tr></thead>
+                        <tbody id="recentOrders"><tr><td colspan="5"><div class="loading-spinner"></div></td></tr></tbody>
+                    </table>
+                </div>
+                <div class="table-container">
+                    <div class="table-header">
+                        <h3>👥 آخر المستخدمين</h3>
+                        <a href="pages/users.html" class="btn btn-outline btn-sm">عرض الكل</a>
+                    </div>
+                    <table>
+                        <thead><tr><th>الاسم</th><th>البريد</th><th>الدور</th><th>التاريخ</th></tr></thead>
+                        <tbody id="recentUsers"><tr><td colspan="4"><div class="loading-spinner"></div></td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:20px;">
+                <div class="table-container">
+                    <div class="table-header">
+                        <h3>⚠️ آخر البلاغات</h3>
+                        <a href="pages/reports.html" class="btn btn-outline btn-sm">عرض الكل</a>
+                    </div>
+                    <table>
+                        <thead><tr><th>النوع</th><th>المبلّغ</th><th>السبب</th><th>الحالة</th><th>التاريخ</th></tr></thead>
+                        <tbody id="recentReports"><tr><td colspan="5"><div class="loading-spinner"></div></td></tr></tbody>
+                    </table>
+                </div>
+                <div class="card">
+                    <h3>⚡ الإجراءات السريعة</h3>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px;">
+                        <a href="pages/users.html" class="btn btn-primary" style="justify-content:center;">👥 المستخدمين</a>
+                        <a href="pages/stores.html" class="btn btn-outline" style="justify-content:center;">🏪 المتاجر</a>
+                        <a href="pages/products.html" class="btn btn-outline" style="justify-content:center;">📦 المنتجات</a>
+                        <a href="pages/orders.html" class="btn btn-outline" style="justify-content:center;">🛒 الطلبات</a>
+                        <a href="pages/categories.html" class="btn btn-outline" style="justify-content:center;">📂 الأصناف</a>
+                        <a href="pages/reports.html" class="btn btn-danger" style="justify-content:center;">⚠️ البلاغات</a>
+                        <a href="pages/settings.html" class="btn btn-outline" style="justify-content:center;grid-column:span 2;">⚙️ إعدادات النظام</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+<script src="js/admin.js"></script>
+<script>
+    const auth = checkAuth();
+    if (auth) {
+        document.getElementById('adminName').textContent = `مرحباً، ${auth.user.first_name}`;
+        renderSidebar('dashboard');
+        loadDashboard();
+        // Auto-refresh every 30 seconds
+        setInterval(loadDashboard, 30000);
+    }
+
+    async function loadDashboard() {
+        try {
+            const [stats, orders, users, reports] = await Promise.all([
+                apiRequest('/admin/stats').catch(() => null),
+                apiRequest('/admin/orders?limit=5').catch(() => null),
+                apiRequest('/admin/users?limit=5').catch(() => null),
+                apiRequest('/admin/reports?limit=5&status=pending').catch(() => null),
+            ]);
+
+            // Update last refresh
+            document.getElementById('lastRefresh').textContent = `آخر تحديث: ${new Date().toLocaleTimeString('ar-DZ')}`;
+
+            if (stats) {
+                document.getElementById('totalUsers').textContent = formatNumber(stats.total_users);
+                document.getElementById('totalStores').textContent = formatNumber(stats.active_stores || stats.total_stores);
+                document.getElementById('totalProducts').textContent = formatNumber(stats.total_products);
+                document.getElementById('totalOrders').textContent = formatNumber(stats.total_orders);
+                document.getElementById('totalRevenue').textContent = formatPrice(stats.total_revenue);
+                document.getElementById('pendingReportsCount').textContent = stats.pending_reports || 0;
+
+                // Order status cards
+                document.getElementById('ordersPending').textContent = stats.orders_pending || 0;
+                document.getElementById('ordersProcessing').textContent = stats.orders_processing || 0;
+                document.getElementById('ordersShipped').textContent = stats.orders_shipped || 0;
+                document.getElementById('ordersDelivered').textContent = stats.orders_delivered || 0;
+                document.getElementById('ordersCancelled').textContent = stats.orders_cancelled || 0;
+
+                // Today counts
+                if (stats.today_users > 0) document.getElementById('todayUsers').textContent = `+${stats.today_users} اليوم`;
+                if (stats.today_orders > 0) document.getElementById('todayOrders').textContent = `+${stats.today_orders} اليوم`;
+            }
+
+            if (orders && orders.data) {
+                document.getElementById('recentOrders').innerHTML = orders.data.slice(0, 5).map(o => `
+                    <tr>
+                        <td><strong>${o.order_number || '-'}</strong></td>
+                        <td>${o.buyer_first_name ? o.buyer_first_name + ' ' + o.buyer_last_name : o.buyer_name || '-'}</td>
+                        <td>${formatPrice(o.total)}</td>
+                        <td>${getStatusBadge(o.status)}</td>
+                        <td style="font-size:12px;color:var(--gray);">${timeAgo(o.created_at)}</td>
+                    </tr>
+                `).join('') || '<tr><td colspan="5" class="empty-state"><p>لا توجد طلبات</p></td></tr>';
+            }
+
+            if (users && users.data) {
+                document.getElementById('recentUsers').innerHTML = users.data.slice(0, 5).map(u => `
+                    <tr>
+                        <td><strong>${u.first_name} ${u.last_name}</strong></td>
+                        <td style="font-size:12px;">${u.email}</td>
+                        <td>${getRoleBadge(u.role)}</td>
+                        <td style="font-size:12px;color:var(--gray);">${timeAgo(u.created_at)}</td>
+                    </tr>
+                `).join('') || '<tr><td colspan="4" class="empty-state"><p>لا يوجد مستخدمين</p></td></tr>';
+            }
+
+            if (reports) {
+                const typeMap = { product: 'منتج', store: 'متجر', user: 'مستخدم', review: 'تقييم' };
+                const reasonMap = { spam: 'سبام', fake: 'مزيف', inappropriate: 'غير مناسب', scam: 'احتيال', other: 'أخرى' };
+                const reportList = reports.data || reports.reports || [];
+                document.getElementById('recentReports').innerHTML = reportList.slice(0, 5).map(r => `
+                    <tr>
+                        <td><span class="badge badge-primary">${typeMap[r.type] || r.report_type || r.type || '-'}</span></td>
+                        <td>${r.reporter_first_name ? r.reporter_first_name + ' ' + r.reporter_last_name : r.reporter_name || '-'}</td>
+                        <td>${reasonMap[r.reason] || r.reason || '-'}</td>
+                        <td>${getStatusBadge(r.status || 'pending')}</td>
+                        <td style="font-size:12px;color:var(--gray);">${timeAgo(r.created_at)}</td>
+                    </tr>
+                `).join('') || '<tr><td colspan="5" class="empty-state"><p>لا يوجد بلاغات معلقة</p></td></tr>';
+            }
+        } catch (err) {
+            console.error('Dashboard load error:', err);
+        }
+    }
+</script>
+</body>
+</html>

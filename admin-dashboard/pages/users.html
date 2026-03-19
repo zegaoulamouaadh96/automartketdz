@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>إدارة المستخدمين - AutoMarket DZ</title>
+    <link rel="stylesheet" href="../css/admin.css">
+</head>
+<body>
+<div class="dashboard-layout">
+    <aside class="sidebar"></aside>
+    <main class="main-content">
+        <div class="topbar">
+            <h1>👥 إدارة المستخدمين</h1>
+            <div class="topbar-actions">
+                <select id="roleFilter" class="search-input" onchange="loadUsers(1)">
+                    <option value="">كل الأدوار</option>
+                    <option value="buyer">مشتري</option>
+                    <option value="seller">بائع</option>
+                    <option value="supplier">مورد</option>
+                    <option value="admin">مدير</option>
+                </select>
+                <input type="text" id="searchInput" class="search-input" placeholder="بحث بالاسم أو البريد..." oninput="clearTimeout(window._st);window._st=setTimeout(()=>loadUsers(1),400)">
+            </div>
+        </div>
+        <div class="page-content">
+            <div class="stats-grid">
+                <div class="stat-card"><div class="stat-icon blue">👥</div><h3 id="allCount">-</h3><p>إجمالي</p></div>
+                <div class="stat-card"><div class="stat-icon green">🛒</div><h3 id="buyerCount">-</h3><p>مشترين</p></div>
+                <div class="stat-card"><div class="stat-icon orange">🏪</div><h3 id="sellerCount">-</h3><p>بائعين</p></div>
+                <div class="stat-card"><div class="stat-icon purple">📦</div><h3 id="supplierCount">-</h3><p>موردين</p></div>
+            </div>
+
+            <div class="table-container">
+                <div class="table-header">
+                    <h3>قائمة المستخدمين</h3>
+                    <span id="userTotal" style="font-size:13px;color:var(--gray);"></span>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>المستخدم</th>
+                            <th>البريد الإلكتروني</th>
+                            <th>الهاتف</th>
+                            <th>الدور</th>
+                            <th>الولاية</th>
+                            <th>الحالة</th>
+                            <th>التسجيل</th>
+                            <th>الإجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody id="usersTable"><tr><td colspan="8"><div class="loading-spinner"></div></td></tr></tbody>
+                </table>
+            </div>
+            <div id="pagination"></div>
+        </div>
+    </main>
+</div>
+
+<div id="userModal" style="display:none;"></div>
+
+<script src="../js/admin.js"></script>
+<script>
+    const auth = checkAuth();
+    if (auth) { renderSidebar('users'); loadUsers(1); }
+
+    async function loadUsers(page = 1) {
+        const role = document.getElementById('roleFilter').value;
+        const search = document.getElementById('searchInput').value;
+        try {
+            const params = new URLSearchParams({ page, limit: 20 });
+            if (role) params.append('role', role);
+            if (search) params.append('search', search);
+            const res = await apiRequest(`/admin/users?${params}`);
+            const users = res.data || res.users || [];
+
+            if (res.stats) {
+                document.getElementById('allCount').textContent = formatNumber(res.stats.total || users.length);
+                document.getElementById('buyerCount').textContent = formatNumber(res.stats.buyers || 0);
+                document.getElementById('sellerCount').textContent = formatNumber(res.stats.sellers || 0);
+                document.getElementById('supplierCount').textContent = formatNumber(res.stats.suppliers || 0);
+            }
+            document.getElementById('userTotal').textContent = `عرض ${users.length} من ${res.pagination?.total || res.stats?.total || users.length}`;
+
+            document.getElementById('usersTable').innerHTML = users.map(u => `
+                <tr>
+                    <td>
+                        <div style="display:flex;align-items:center;gap:10px;">
+                            <div style="width:36px;height:36px;border-radius:50%;background:${u.is_active !== false ? 'var(--primary-light)' : '#FEE2E2'};display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;">
+                                ${u.first_name ? u.first_name.charAt(0) : '?'}
+                            </div>
+                            <div>
+                                <strong>${u.first_name} ${u.last_name}</strong>
+                                <div style="font-size:11px;color:var(--gray);">ID: ${String(u.id).substring(0,8)}...</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td style="font-size:13px;">${u.email}</td>
+                    <td>${u.phone || '<span style="color:var(--gray)">-</span>'}</td>
+                    <td>${getRoleBadge(u.role)}</td>
+                    <td>${u.wilaya || '-'}</td>
+                    <td>${u.is_active !== false ? getStatusBadge('active') : getStatusBadge('banned')}</td>
+                    <td style="font-size:12px;color:var(--gray);">${timeAgo(u.created_at)}</td>
+                    <td>
+                        <div style="display:flex;gap:4px;">
+                            <button class="btn btn-sm btn-outline" onclick="viewUser('${u.id}')" title="عرض التفاصيل">👁️</button>
+                            ${u.is_active !== false 
+                                ? `<button class="btn btn-sm btn-danger" onclick="toggleUser('${u.id}', false)" title="حظر">🚫</button>`
+                                : `<button class="btn btn-sm btn-success" onclick="toggleUser('${u.id}', true)" title="تفعيل">✅</button>`}
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+
+            if (users.length === 0) showEmpty('usersTable', '👥', 'لا يوجد مستخدمين', 'لم يتم العثور على مستخدمين بهذه المعايير');
+            if (res.pagination) renderPagination('pagination', res.pagination, 'loadUsers');
+        } catch (err) {
+            showNotification(err.message, 'error');
+        }
+    }
+
+    async function viewUser(id) {
+        try {
+            const res = await apiRequest(`/admin/users/${id}`);
+            const u = res.data || res.user || res;
+            document.getElementById('userModal').style.display = '';
+            document.getElementById('userModal').innerHTML = `
+                <div class="modal-overlay" onclick="closeModal()">
+                    <div class="modal" onclick="event.stopPropagation()" style="max-width:600px;">
+                        <h2 style="display:flex;justify-content:space-between;align-items:center;">
+                            تفاصيل المستخدم
+                            <button class="btn btn-sm btn-outline" onclick="closeModal()">✕</button>
+                        </h2>
+                        <div style="display:flex;align-items:center;gap:16px;padding:16px;background:var(--gray-light);border-radius:var(--radius);margin-bottom:16px;">
+                            <div style="width:56px;height:56px;border-radius:50%;background:var(--primary-light);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;color:var(--primary);">
+                                ${u.first_name ? u.first_name.charAt(0) : '?'}
+                            </div>
+                            <div>
+                                <h3 style="margin:0;">${u.first_name} ${u.last_name}</h3>
+                                <div>${getRoleBadge(u.role)} ${u.is_active !== false ? getStatusBadge('active') : getStatusBadge('banned')}</div>
+                            </div>
+                        </div>
+                        <div class="detail-row"><span>البريد الإلكتروني</span><span>${u.email}</span></div>
+                        <div class="detail-row"><span>الهاتف</span><span>${u.phone || '-'}</span></div>
+                        <div class="detail-row"><span>الولاية</span><span>${u.wilaya || '-'}</span></div>
+                        <div class="detail-row"><span>العنوان</span><span>${u.address || '-'}</span></div>
+                        <div class="detail-row"><span>تاريخ التسجيل</span><span>${formatDateTime(u.created_at)}</span></div>
+                        ${u.total_orders !== undefined ? `<div class="detail-row"><span>🛒 إجمالي الطلبات</span><span><strong>${u.total_orders}</strong></span></div>` : ''}
+                        ${u.total_reports !== undefined ? `<div class="detail-row"><span>⚠️ البلاغات</span><span><strong>${u.total_reports}</strong></span></div>` : ''}
+                        ${u.stores && u.stores.length > 0 ? `
+                            <h4 style="margin:16px 0 8px;">🏪 المتاجر (${u.stores.length})</h4>
+                            ${u.stores.map(s => `
+                                <div class="detail-row"><span>${s.name}</span><span>${s.is_active ? getStatusBadge('active') : getStatusBadge('inactive')}</span></div>
+                            `).join('')}
+                        ` : ''}
+                        <div style="display:flex;gap:10px;margin-top:20px;padding-top:16px;border-top:1px solid var(--border);">
+                            ${u.is_active !== false 
+                                ? `<button class="btn btn-danger" onclick="toggleUser('${u.id}', false); closeModal()">🚫 حظر المستخدم</button>`
+                                : `<button class="btn btn-success" onclick="toggleUser('${u.id}', true); closeModal()">✅ تفعيل المستخدم</button>`}
+                        </div>
+                    </div>
+                </div>`;
+        } catch (err) {
+            showNotification(err.message, 'error');
+        }
+    }
+
+    async function toggleUser(id, activate) {
+        if (!confirmAction(activate ? 'هل تريد تفعيل هذا المستخدم؟' : 'هل تريد حظر هذا المستخدم؟')) return;
+        try {
+            await apiRequest(`/admin/users/${id}/status`, {
+                method: 'PUT',
+                body: JSON.stringify({ is_active: activate })
+            });
+            showNotification(activate ? 'تم تفعيل المستخدم' : 'تم حظر المستخدم');
+            loadUsers();
+        } catch (err) {
+            showNotification(err.message, 'error');
+        }
+    }
+
+    function closeModal() {
+        document.getElementById('userModal').style.display = 'none';
+    }
+</script>
+</body>
+</html>

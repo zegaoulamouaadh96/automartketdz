@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Search - AutoMarket DZ</title>
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+  <header class="header">
+    <div class="container">
+      <div class="header-top">
+        <a href="../index.html" class="logo"><span>AUTO</span>MARKET<span> DZ</span></a>
+        <div class="search-bar">
+          <input type="text" id="search-input" placeholder="Search spare parts...">
+          <button onclick="applyFilters()">🔍</button>
+        </div>
+        <div class="header-actions" id="auth-links"></div>
+      </div>
+    </div>
+  </header>
+
+  <div class="container">
+    <div class="search-page">
+      <!-- FILTERS SIDEBAR -->
+      <aside class="filters-sidebar">
+        <h3 style="margin-bottom:16px;">🔍 Filters</h3>
+
+        <div class="filter-group">
+          <h4>Category</h4>
+          <select id="filter-category">
+            <option value="">All categories</option>
+          </select>
+        </div>
+
+        <div class="filter-group">
+          <h4>Vehicle Type</h4>
+          <select id="filter-vehicle-type" onchange="loadFilterBrands()">
+            <option value="">All</option>
+            <option value="car">Cars</option>
+            <option value="truck">Trucks</option>
+            <option value="motorcycle">Motorcycles</option>
+          </select>
+        </div>
+
+        <div class="filter-group">
+          <h4>Brand</h4>
+          <select id="filter-brand" onchange="loadFilterModels()">
+            <option value="">All brands</option>
+          </select>
+        </div>
+
+        <div class="filter-group">
+          <h4>Model</h4>
+          <select id="filter-model">
+            <option value="">All models</option>
+          </select>
+        </div>
+
+        <div class="filter-group">
+          <h4>Year</h4>
+          <select id="filter-year">
+            <option value="">All years</option>
+          </select>
+        </div>
+
+        <div class="filter-group">
+          <h4>Price Range (DA)</h4>
+          <div class="price-range">
+            <input type="number" id="filter-min-price" placeholder="Min">
+            <span>-</span>
+            <input type="number" id="filter-max-price" placeholder="Max">
+          </div>
+        </div>
+
+        <div class="filter-group">
+          <h4>Condition</h4>
+          <label class="filter-option"><input type="checkbox" value="new" class="condition-filter"> New</label>
+          <label class="filter-option"><input type="checkbox" value="used" class="condition-filter"> Used</label>
+          <label class="filter-option"><input type="checkbox" value="refurbished" class="condition-filter"> Refurbished</label>
+        </div>
+
+        <div class="filter-group">
+          <h4>Wilaya</h4>
+          <select id="filter-wilaya">
+            <option value="">All wilayas</option>
+          </select>
+        </div>
+
+        <div class="filter-group">
+          <h4>Sort By</h4>
+          <select id="filter-sort">
+            <option value="">Newest</option>
+            <option value="price_asc">Price: Low to High</option>
+            <option value="price_desc">Price: High to Low</option>
+            <option value="rating">Best Rated</option>
+            <option value="popular">Most Popular</option>
+          </select>
+        </div>
+
+        <button class="btn-submit" onclick="applyFilters()">Apply Filters</button>
+      </aside>
+
+      <!-- RESULTS -->
+      <main>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+          <h2 id="results-title">Products</h2>
+          <span id="results-count" style="color:var(--gray);font-size:14px;"></span>
+        </div>
+        <div class="products-grid" id="products-grid">
+          <div class="loading"><div class="spinner"></div></div>
+        </div>
+        <div id="pagination" style="display:flex;justify-content:center;gap:8px;margin-top:24px;"></div>
+      </main>
+    </div>
+  </div>
+
+  <script src="../js/app.js"></script>
+  <script>
+    let currentPage = 1;
+
+    // Parse URL params
+    const urlParams = new URLSearchParams(window.location.search);
+
+    async function initSearchPage() {
+      // Load categories
+      try {
+        const categories = await loadCategories();
+        const catSelect = document.getElementById('filter-category');
+        categories.forEach(cat => {
+          const opt = document.createElement('option');
+          opt.value = cat.slug;
+          opt.textContent = cat.name;
+          catSelect.appendChild(opt);
+        });
+      } catch(e) {}
+
+      // Load brands
+      await loadFilterBrands();
+
+      // Load wilayas
+      try {
+        const data = await api('/wilayas');
+        const select = document.getElementById('filter-wilaya');
+        data.wilayas.forEach(w => {
+          const opt = document.createElement('option');
+          opt.value = w;
+          opt.textContent = w;
+          select.appendChild(opt);
+        });
+      } catch(e) {}
+
+      // Generate years
+      const yearSelect = document.getElementById('filter-year');
+      for (let y = 2025; y >= 1990; y--) {
+        const opt = document.createElement('option');
+        opt.value = y;
+        opt.textContent = y;
+        yearSelect.appendChild(opt);
+      }
+
+      // Set initial values from URL
+      if (urlParams.get('q')) document.getElementById('search-input').value = urlParams.get('q');
+      if (urlParams.get('category')) document.getElementById('filter-category').value = urlParams.get('category');
+      if (urlParams.get('vehicle_type')) document.getElementById('filter-vehicle-type').value = urlParams.get('vehicle_type');
+      if (urlParams.get('brand_id')) document.getElementById('filter-brand').value = urlParams.get('brand_id');
+
+      // Load products
+      applyFilters();
+    }
+
+    async function loadFilterBrands() {
+      const type = document.getElementById('filter-vehicle-type').value;
+      const brands = await loadBrands(type);
+      const select = document.getElementById('filter-brand');
+      select.innerHTML = '<option value="">All brands</option>';
+      brands.forEach(b => {
+        const opt = document.createElement('option');
+        opt.value = b.id;
+        opt.textContent = b.name;
+        select.appendChild(opt);
+      });
+    }
+
+    async function loadFilterModels() {
+      const brandId = document.getElementById('filter-brand').value;
+      const select = document.getElementById('filter-model');
+      select.innerHTML = '<option value="">All models</option>';
+      if (!brandId) return;
+      const models = await loadModels(brandId);
+      models.forEach(m => {
+        const opt = document.createElement('option');
+        opt.value = m.id;
+        opt.textContent = m.name;
+        select.appendChild(opt);
+      });
+    }
+
+    async function applyFilters(page = 1) {
+      currentPage = page;
+      const grid = document.getElementById('products-grid');
+      grid.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+
+      const params = { page, limit: 12 };
+      const q = document.getElementById('search-input').value;
+      const category = document.getElementById('filter-category').value;
+      const vehicleType = document.getElementById('filter-vehicle-type').value;
+      const brandId = document.getElementById('filter-brand').value;
+      const modelId = document.getElementById('filter-model').value;
+      const year = document.getElementById('filter-year').value;
+      const minPrice = document.getElementById('filter-min-price').value;
+      const maxPrice = document.getElementById('filter-max-price').value;
+      const wilaya = document.getElementById('filter-wilaya').value;
+      const sort = document.getElementById('filter-sort').value;
+      const conditions = Array.from(document.querySelectorAll('.condition-filter:checked')).map(c => c.value);
+
+      if (category) params.category = category;
+      if (vehicleType) params.vehicle_type = vehicleType;
+      if (brandId) params.brand_id = brandId;
+      if (modelId) params.model_id = modelId;
+      if (year) params.year = year;
+      if (minPrice) params.min_price = minPrice;
+      if (maxPrice) params.max_price = maxPrice;
+      if (wilaya) params.wilaya = wilaya;
+      if (sort) params.sort = sort;
+      if (conditions.length === 1) params.condition = conditions[0];
+
+      try {
+        let data;
+        if (q && q.length >= 2) {
+          params.q = q;
+          data = await searchProducts(q, params);
+        } else {
+          data = await loadProducts(params);
+        }
+
+        document.getElementById('results-count').textContent = `${data.pagination.total} product(s) found`;
+        document.getElementById('results-title').textContent = q ? `Results for "${q}"` : 'Products';
+
+        if (data.data.length > 0) {
+          grid.innerHTML = data.data.map(renderProductCard).join('');
+        } else {
+          grid.innerHTML = '<p style="color:var(--gray);padding:40px;text-align:center;">No products found matching your criteria.</p>';
+        }
+
+        // Pagination
+        renderPagination(data.pagination);
+      } catch (error) {
+        grid.innerHTML = '<p style="color:var(--danger);padding:40px;">Error loading products.</p>';
+      }
+    }
+
+    function renderProductCard(product) {
+      const badgeClass = product.condition === 'new' ? 'badge-new' : product.condition === 'used' ? 'badge-used' : 'badge-sale';
+      const badgeText = product.condition === 'new' ? 'New' : product.condition === 'used' ? 'Used' : 'Refurbished';
+      return `
+        <div class="product-card" onclick="window.location.href='product.html?id=${product.id}'">
+          <div class="image">
+            <span style="font-size:48px;color:#ccc">🔧</span>
+            <span class="badge ${badgeClass}">${badgeText}</span>
+          </div>
+          <div class="info">
+            <div class="category">${product.category_name || 'Parts'}</div>
+            <h3>${product.name}</h3>
+            <div class="price">${formatPrice(product.price)}</div>
+            <div class="meta">
+              <span class="rating">${renderStars(product.rating || 0)}</span>
+              <span class="location">📍 ${product.store_wilaya || ''}</span>
+            </div>
+          </div>
+          <div class="actions" onclick="event.stopPropagation()">
+            <button class="btn-add-cart" onclick="addToCart({id:'${product.id}',name:'${product.name.replace(/'/g, "\\'")}',price:${product.price}})">🛒 Add</button>
+            <button class="btn-wishlist">♡</button>
+          </div>
+        </div>`;
+    }
+
+    function renderPagination(pagination) {
+      const container = document.getElementById('pagination');
+      if (pagination.totalPages <= 1) { container.innerHTML = ''; return; }
+
+      let html = '';
+      if (pagination.hasPrev) html += `<button onclick="applyFilters(${pagination.page - 1})" style="padding:8px 16px;border:1px solid var(--border);border-radius:var(--radius);background:var(--white);cursor:pointer;">← Prev</button>`;
+      for (let i = 1; i <= pagination.totalPages; i++) {
+        const active = i === pagination.page ? 'background:var(--primary);color:white;' : '';
+        html += `<button onclick="applyFilters(${i})" style="padding:8px 14px;border:1px solid var(--border);border-radius:var(--radius);cursor:pointer;${active}">${i}</button>`;
+      }
+      if (pagination.hasNext) html += `<button onclick="applyFilters(${pagination.page + 1})" style="padding:8px 16px;border:1px solid var(--border);border-radius:var(--radius);background:var(--white);cursor:pointer;">Next →</button>`;
+      container.innerHTML = html;
+    }
+
+    initSearchPage();
+  </script>
+</body>
+</html>

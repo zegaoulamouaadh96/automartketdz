@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>البلاغات - AutoMarket DZ</title>
+    <link rel="stylesheet" href="../css/admin.css">
+</head>
+<body>
+<div class="dashboard-layout">
+    <aside class="sidebar"></aside>
+    <main class="main-content">
+        <div class="topbar">
+            <h1>🚨 إدارة البلاغات</h1>
+            <div class="topbar-actions">
+                <select id="statusFilter" class="search-input" onchange="loadReports(1)" style="min-width:160px;">
+                    <option value="">كل الحالات</option>
+                    <option value="pending">⏳ بانتظار المراجعة</option>
+                    <option value="reviewed">🔍 تمت المراجعة</option>
+                    <option value="resolved">✅ تم الحل</option>
+                    <option value="dismissed">❌ مرفوض</option>
+                </select>
+            </div>
+        </div>
+        <div class="page-content">
+            <div class="stats-grid">
+                <div class="stat-card"><div class="stat-icon red">⚠️</div><h3 id="pendingReports">-</h3><p>بانتظار المراجعة</p></div>
+                <div class="stat-card"><div class="stat-icon blue">🔍</div><h3 id="reviewedReports">-</h3><p>تمت المراجعة</p></div>
+                <div class="stat-card"><div class="stat-icon green">✅</div><h3 id="resolvedReports">-</h3><p>تم الحل</p></div>
+                <div class="stat-card"><div class="stat-icon orange">❌</div><h3 id="dismissedReports">-</h3><p>مرفوض</p></div>
+            </div>
+
+            <div class="table-container">
+                <div class="table-header"><h3>قائمة البلاغات</h3></div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>النوع</th>
+                            <th>المبلّغ</th>
+                            <th>السبب</th>
+                            <th>الوصف</th>
+                            <th>الحالة</th>
+                            <th>التاريخ</th>
+                            <th>الإجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody id="reportsTable"><tr><td colspan="8"><div class="loading-spinner"></div></td></tr></tbody>
+                </table>
+                <div id="reportsPagination"></div>
+            </div>
+        </div>
+    </main>
+</div>
+<div id="reportModal" style="display:none;"></div>
+<script src="../js/admin.js"></script>
+<script>
+    const auth = checkAuth();
+    if (auth) { renderSidebar('reports'); loadReports(); }
+
+    const typeMap = { product: '📦 منتج', store: '🏪 متجر', user: '👤 مستخدم', review: '⭐ تقييم' };
+    const typeClsMap = { product: 'badge-primary', store: 'badge-info', user: 'badge-warning', review: 'badge-success' };
+    const reasonMap = { spam: 'سبام', fake: 'مزيف', inappropriate: 'غير مناسب', scam: 'احتيال', other: 'أخرى' };
+    const statusBadgeMap = {
+        pending: ['⏳ بانتظار', 'badge-warning'],
+        reviewed: ['🔍 تمت المراجعة', 'badge-info'],
+        resolved: ['✅ تم الحل', 'badge-success'],
+        dismissed: ['❌ مرفوض', 'badge-danger'],
+    };
+
+    async function loadReports(page = 1) {
+        const status = document.getElementById('statusFilter').value;
+        try {
+            const params = new URLSearchParams({ page, limit: 15 });
+            if (status) params.append('status', status);
+            const res = await apiRequest(`/admin/reports?${params}`);
+            const reports = res.data || res.reports || [];
+            const pagination = res.pagination;
+
+            if (res.stats) {
+                document.getElementById('pendingReports').textContent = formatNumber(res.stats.pending || 0);
+                document.getElementById('reviewedReports').textContent = formatNumber(res.stats.reviewed || 0);
+                document.getElementById('resolvedReports').textContent = formatNumber(res.stats.resolved || 0);
+                document.getElementById('dismissedReports').textContent = formatNumber(res.stats.dismissed || 0);
+            }
+
+            if (reports.length === 0) {
+                showEmpty('reportsTable', '🚨', 'لا يوجد بلاغات', 'لم يتم تقديم أي بلاغات بعد');
+                document.getElementById('reportsPagination').innerHTML = '';
+                return;
+            }
+
+            document.getElementById('reportsTable').innerHTML = reports.map((r, i) => {
+                const [sLabel, sCls] = statusBadgeMap[r.status] || [r.status, 'badge-info'];
+                const reporterName = r.reporter_name || [r.reporter_first_name, r.reporter_last_name].filter(Boolean).join(' ') || '-';
+                return `
+                    <tr style="${r.status === 'pending' ? 'background:rgba(239,68,68,0.04);' : ''}">
+                        <td style="color:var(--gray);font-size:12px;">${(page - 1) * 15 + i + 1}</td>
+                        <td><span class="badge ${typeClsMap[r.report_type] || 'badge-info'}">${typeMap[r.report_type] || r.report_type}</span></td>
+                        <td><strong>${reporterName}</strong></td>
+                        <td><span class="badge badge-outline">${reasonMap[r.reason] || r.reason}</span></td>
+                        <td style="font-size:13px;color:var(--gray);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${r.description || '-'}</td>
+                        <td><span class="badge ${sCls}">${sLabel}</span></td>
+                        <td style="font-size:12px;color:var(--gray);">${timeAgo(r.created_at)}</td>
+                        <td>
+                            <button class="btn btn-sm btn-outline" onclick="viewReport('${r.id}')" title="عرض التفاصيل">👁️ عرض</button>
+                        </td>
+                    </tr>`;
+            }).join('');
+
+            if (pagination) renderPagination('reportsPagination', pagination, loadReports);
+        } catch (err) {
+            showNotification(err.message, 'error');
+        }
+    }
+
+    async function viewReport(id) {
+        try {
+            const res = await apiRequest(`/admin/reports/${id}`);
+            const r = res.data || res.report || res;
+            const reporterName = r.reporter_name || [r.reporter_first_name, r.reporter_last_name].filter(Boolean).join(' ') || '-';
+            const [sLabel, sCls] = statusBadgeMap[r.status] || [r.status, 'badge-info'];
+
+            document.getElementById('reportModal').style.display = '';
+            document.getElementById('reportModal').innerHTML = `
+                <div class="modal-overlay" onclick="closeModal()">
+                    <div class="modal" onclick="event.stopPropagation()" style="max-width:600px;">
+                        <h2 style="display:flex;justify-content:space-between;align-items:center;">
+                            تفاصيل البلاغ
+                            <button class="btn btn-sm btn-outline" onclick="closeModal()">✕</button>
+                        </h2>
+
+                        <div style="background:linear-gradient(135deg,var(--primary),var(--primary-dark));border-radius:12px;padding:20px;color:white;margin-bottom:20px;">
+                            <div style="display:flex;justify-content:space-between;align-items:center;">
+                                <div>
+                                    <div style="font-size:13px;opacity:.8;">نوع البلاغ</div>
+                                    <div style="font-size:18px;font-weight:700;margin-top:4px;">${typeMap[r.report_type] || r.report_type}</div>
+                                </div>
+                                <span class="badge ${sCls}" style="font-size:13px;padding:6px 14px;">${sLabel}</span>
+                            </div>
+                        </div>
+
+                        <div class="detail-row"><span class="detail-label">المبلّغ</span><span class="detail-value"><strong>${reporterName}</strong></span></div>
+                        <div class="detail-row"><span class="detail-label">البريد</span><span class="detail-value">${r.reporter_email || '-'}</span></div>
+                        <div class="detail-row"><span class="detail-label">السبب</span><span class="detail-value"><span class="badge badge-warning">${reasonMap[r.reason] || r.reason}</span></span></div>
+                        <div class="detail-row"><span class="detail-label">العنصر المبلّغ عنه</span><span class="detail-value"><strong>${r.reported_item_name || r.reported_id || '-'}</strong></span></div>
+                        <div class="detail-row"><span class="detail-label">تاريخ البلاغ</span><span class="detail-value">${formatDateTime(r.created_at)} (${timeAgo(r.created_at)})</span></div>
+
+                        ${r.description ? `<div style="margin:16px 0;padding:14px;background:var(--bg);border-radius:8px;border-right:4px solid var(--warning);"><div style="font-size:12px;color:var(--gray);margin-bottom:6px;">الوصف</div><div style="font-size:14px;line-height:1.6;">${r.description}</div></div>` : ''}
+
+                        ${r.admin_notes ? `<div style="margin:12px 0;padding:14px;background:#F0FDF4;border-radius:8px;border-right:4px solid var(--success);"><div style="font-size:12px;color:var(--gray);margin-bottom:6px;">ملاحظات المشرف</div><div style="font-size:14px;">${r.admin_notes}</div></div>` : ''}
+
+                        <h3 style="margin:20px 0 12px;font-size:15px;">⚡ تحديث الحالة</h3>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                            <button class="btn btn-outline" onclick="updateReport('${r.id}','reviewed')" ${r.status === 'reviewed' ? 'disabled style="opacity:.5;"' : ''}>🔍 تمت المراجعة</button>
+                            <button class="btn btn-success" onclick="updateReport('${r.id}','resolved')" ${r.status === 'resolved' ? 'disabled style="opacity:.5;"' : ''}>✅ تم الحل</button>
+                            <button class="btn btn-danger" onclick="updateReport('${r.id}','dismissed')" ${r.status === 'dismissed' ? 'disabled style="opacity:.5;"' : ''}>❌ رفض البلاغ</button>
+                            <button class="btn btn-outline" onclick="updateReport('${r.id}','pending')" ${r.status === 'pending' ? 'disabled style="opacity:.5;"' : ''}>↩️ إعادة فتح</button>
+                        </div>
+
+                        ${r.report_type === 'product' || r.report_type === 'store' || r.report_type === 'user' ? `
+                            <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border);">
+                                <h3 style="font-size:15px;color:var(--danger);margin-bottom:10px;">⚠️ إجراءات تأديبية</h3>
+                                ${r.report_type === 'product' ? `<button class="btn btn-danger" style="width:100%;" onclick="handleReportAction('${r.id}','${r.reported_id}','product')">🗑️ حذف المنتج المبلّغ عنه</button>` : ''}
+                                ${r.report_type === 'store' ? `<button class="btn btn-danger" style="width:100%;" onclick="handleReportAction('${r.id}','${r.reported_id}','store')">🚫 تعطيل المتجر المبلّغ عنه</button>` : ''}
+                                ${r.report_type === 'user' ? `<button class="btn btn-danger" style="width:100%;" onclick="handleReportAction('${r.id}','${r.reported_id}','user')">🚫 حظر المستخدم المبلّغ عنه</button>` : ''}
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>`;
+        } catch (err) {
+            showNotification(err.message, 'error');
+        }
+    }
+
+    async function updateReport(id, status) {
+        try {
+            await apiRequest(`/admin/reports/${id}`, {
+                method: 'PUT',
+                body: JSON.stringify({ status })
+            });
+            showNotification('تم تحديث حالة البلاغ');
+            closeModal();
+            loadReports();
+        } catch (err) {
+            showNotification(err.message, 'error');
+        }
+    }
+
+    async function handleReportAction(reportId, targetId, type) {
+        const msgs = { product: 'حذف هذا المنتج', store: 'تعطيل هذا المتجر', user: 'حظر هذا المستخدم' };
+        if (!confirmAction(`هل أنت متأكد من ${msgs[type]}؟ هذا الإجراء لا يمكن التراجع عنه.`)) return;
+        try {
+            if (type === 'product') {
+                await apiRequest(`/admin/products/${targetId}`, { method: 'DELETE' });
+            } else if (type === 'store') {
+                await apiRequest(`/admin/stores/${targetId}/status`, { method: 'PUT', body: JSON.stringify({ is_active: false }) });
+            } else if (type === 'user') {
+                await apiRequest(`/admin/users/${targetId}/status`, { method: 'PUT', body: JSON.stringify({ is_active: false }) });
+            }
+            await updateReport(reportId, 'resolved');
+            showNotification('تم تنفيذ الإجراء بنجاح');
+        } catch (err) {
+            showNotification(err.message, 'error');
+        }
+    }
+
+    function closeModal() {
+        document.getElementById('reportModal').style.display = 'none';
+    }
+</script>
+</body>
+</html>

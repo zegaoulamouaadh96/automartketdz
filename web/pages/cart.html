@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cart - AutoMarket DZ</title>
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+  <header class="header">
+    <div class="container">
+      <div class="header-top">
+        <a href="../index.html" class="logo"><span>AUTO</span>MARKET<span> DZ</span></a>
+        <div class="header-actions" id="auth-links">
+          <a href="login.html" class="btn-outline">Login</a>
+          <a href="register.html" class="btn-primary">Register</a>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="main-content">
+    <div class="container">
+      <h1 class="page-title">🛒 Shopping Cart</h1>
+
+      <div class="cart-layout" id="cart-container">
+        <div class="cart-items" id="cart-items">
+          <div class="empty-state" id="empty-cart">
+            <div class="empty-icon">🛒</div>
+            <h3>Your cart is empty</h3>
+            <p>Start shopping and add products to your cart</p>
+            <a href="search.html" class="btn-primary">Browse Products</a>
+          </div>
+        </div>
+
+        <div class="cart-summary" id="cart-summary" style="display:none;">
+          <h3>Order Summary</h3>
+          <div class="summary-row">
+            <span>Subtotal</span>
+            <span id="cart-subtotal">0 DA</span>
+          </div>
+          <div class="summary-row">
+            <span>Shipping</span>
+            <span id="cart-shipping">Free</span>
+          </div>
+          <div class="summary-row total">
+            <span>Total</span>
+            <span id="cart-total">0 DA</span>
+          </div>
+
+          <h4 style="margin-top:20px;">Shipping Information</h4>
+          <form id="checkout-form" onsubmit="handleCheckout(event)">
+            <div class="form-group">
+              <label>Full Name</label>
+              <input type="text" id="shipping-name" required placeholder="Your full name">
+            </div>
+            <div class="form-group">
+              <label>Phone</label>
+              <input type="tel" id="shipping-phone" required placeholder="0555XXXXXX">
+            </div>
+            <div class="form-group">
+              <label>Wilaya</label>
+              <select id="shipping-wilaya" required>
+                <option value="">Select Wilaya</option>
+                <option value="Adrar">Adrar</option><option value="Chlef">Chlef</option>
+                <option value="Laghouat">Laghouat</option><option value="Oum El Bouaghi">Oum El Bouaghi</option>
+                <option value="Batna">Batna</option><option value="Béjaïa">Béjaïa</option>
+                <option value="Biskra">Biskra</option><option value="Béchar">Béchar</option>
+                <option value="Blida">Blida</option><option value="Bouira">Bouira</option>
+                <option value="Tébessa">Tébessa</option><option value="Tlemcen">Tlemcen</option>
+                <option value="Tiaret">Tiaret</option><option value="Tizi Ouzou">Tizi Ouzou</option>
+                <option value="Alger">Alger</option><option value="Djelfa">Djelfa</option>
+                <option value="Sétif">Sétif</option><option value="Oran">Oran</option>
+                <option value="Constantine">Constantine</option><option value="Annaba">Annaba</option>
+                <option value="Mostaganem">Mostaganem</option><option value="Médéa">Médéa</option>
+                <option value="Boumerdès">Boumerdès</option><option value="Tipaza">Tipaza</option>
+                <option value="Relizane">Relizane</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Address</label>
+              <textarea id="shipping-address" required placeholder="Full shipping address"></textarea>
+            </div>
+            <div class="form-group">
+              <label>Payment Method</label>
+              <select id="payment-method" required>
+                <option value="cash_on_delivery">Cash on Delivery (COD)</option>
+                <option value="ccp">CCP</option>
+                <option value="baridimob">BaridiMob</option>
+                <option value="bank_transfer">Bank Transfer</option>
+              </select>
+            </div>
+            <button type="submit" class="btn-primary btn-block">Place Order</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="container">
+      <p>&copy; 2026 AutoMarket DZ. All rights reserved.</p>
+    </div>
+  </footer>
+
+  <script src="../js/app.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      updateAuthUI();
+      renderCart();
+    });
+
+    function renderCart() {
+      const cart = getCart();
+      const itemsDiv = document.getElementById('cart-items');
+      const summaryDiv = document.getElementById('cart-summary');
+      const emptyDiv = document.getElementById('empty-cart');
+
+      if (cart.length === 0) {
+        emptyDiv.style.display = 'block';
+        summaryDiv.style.display = 'none';
+        return;
+      }
+
+      emptyDiv.style.display = 'none';
+      summaryDiv.style.display = 'block';
+
+      let html = '';
+      let subtotal = 0;
+
+      cart.forEach((item, index) => {
+        const itemTotal = item.price * item.quantity;
+        subtotal += itemTotal;
+        html += `
+          <div class="cart-item">
+            <img src="${item.image || 'https://via.placeholder.com/100x100?text=Part'}" alt="${item.name}" class="cart-item-img">
+            <div class="cart-item-info">
+              <h4>${item.name}</h4>
+              <p class="cart-item-store">${item.store_name || 'Store'}</p>
+              <p class="cart-item-price">${formatPrice(item.price)}</p>
+            </div>
+            <div class="cart-item-qty">
+              <button onclick="updateCartQty(${index}, -1)">−</button>
+              <span>${item.quantity}</span>
+              <button onclick="updateCartQty(${index}, 1)">+</button>
+            </div>
+            <div class="cart-item-total">
+              <strong>${formatPrice(itemTotal)}</strong>
+              <button class="btn-danger-sm" onclick="removeFromCartByIndex(${index})">🗑️</button>
+            </div>
+          </div>
+        `;
+      });
+
+      itemsDiv.innerHTML = html;
+      document.getElementById('cart-subtotal').textContent = formatPrice(subtotal);
+      document.getElementById('cart-total').textContent = formatPrice(subtotal);
+    }
+
+    function updateCartQty(index, delta) {
+      const cart = getCart();
+      cart[index].quantity += delta;
+      if (cart[index].quantity <= 0) cart.splice(index, 1);
+      localStorage.setItem('cart', JSON.stringify(cart));
+      renderCart();
+    }
+
+    function removeFromCartByIndex(index) {
+      const cart = getCart();
+      cart.splice(index, 1);
+      localStorage.setItem('cart', JSON.stringify(cart));
+      renderCart();
+    }
+
+    async function handleCheckout(e) {
+      e.preventDefault();
+      const token = localStorage.getItem('token');
+      if (!token) {
+        alert('Please login to place an order');
+        window.location.href = 'login.html';
+        return;
+      }
+
+      const cart = getCart();
+      if (cart.length === 0) return;
+
+      const orderData = {
+        items: cart.map(item => ({ product_id: item.id, quantity: item.quantity })),
+        shipping_name: document.getElementById('shipping-name').value,
+        shipping_phone: document.getElementById('shipping-phone').value,
+        shipping_wilaya: document.getElementById('shipping-wilaya').value,
+        shipping_address: document.getElementById('shipping-address').value,
+        payment_method: document.getElementById('payment-method').value,
+      };
+
+      try {
+        const res = await fetch(`${API_URL}/orders`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify(orderData),
+        });
+        const data = await res.json();
+        if (res.ok) {
+          localStorage.removeItem('cart');
+          alert('Order placed successfully!');
+          window.location.href = 'orders.html';
+        } else {
+          alert(data.error || 'Failed to place order');
+        }
+      } catch (err) {
+        alert('Network error. Please try again.');
+      }
+    }
+  </script>
+</body>
+</html>

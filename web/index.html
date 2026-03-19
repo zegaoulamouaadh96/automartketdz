@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AutoMarket DZ - قطع غيار المركبات في الجزائر</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- HEADER -->
+  <header class="header">
+    <div class="container">
+      <div class="header-top">
+        <a href="index.html" class="logo">
+          <span>AUTO</span>MARKET<span> DZ</span>
+        </a>
+
+        <div class="search-bar">
+          <input type="text" id="search-input" placeholder="Search for spare parts... (name, OEM number, brand)">
+          <select id="search-vehicle-type">
+            <option value="">All vehicles</option>
+            <option value="car">Cars</option>
+            <option value="truck">Trucks</option>
+            <option value="motorcycle">Motorcycles</option>
+          </select>
+          <button onclick="handleSearch()">🔍</button>
+        </div>
+
+        <div class="header-actions" id="auth-links">
+          <a href="pages/login.html" class="btn-outline">Login</a>
+          <a href="pages/register.html" class="btn-primary">Register</a>
+        </div>
+      </div>
+    </div>
+
+    <nav class="categories-nav">
+      <div class="container">
+        <ul id="categories-nav-list">
+          <li><a href="pages/search.html">All Parts</a></li>
+        </ul>
+      </div>
+    </nav>
+  </header>
+
+  <!-- HERO SECTION -->
+  <section class="hero">
+    <div class="container">
+      <h1>Find <span>Spare Parts</span> for Your Vehicle</h1>
+      <p>The largest marketplace for vehicle spare parts across all 58 wilayas of Algeria</p>
+
+      <div class="hero-search">
+        <input type="text" id="hero-search-input" placeholder="What part are you looking for?">
+        <button onclick="handleHeroSearch()">Search</button>
+      </div>
+
+      <div class="vehicle-types">
+        <div class="vehicle-type-card active" onclick="selectVehicleType('car', this)">
+          <div class="icon">🚗</div>
+          <span>Cars</span>
+        </div>
+        <div class="vehicle-type-card" onclick="selectVehicleType('truck', this)">
+          <div class="icon">🚛</div>
+          <span>Trucks</span>
+        </div>
+        <div class="vehicle-type-card" onclick="selectVehicleType('motorcycle', this)">
+          <div class="icon">🏍️</div>
+          <span>Motorcycles</span>
+        </div>
+      </div>
+
+      <div class="hero-stats">
+        <div class="hero-stat">
+          <h3 id="stat-products">1000+</h3>
+          <p>Products</p>
+        </div>
+        <div class="hero-stat">
+          <h3 id="stat-stores">500+</h3>
+          <p>Stores</p>
+        </div>
+        <div class="hero-stat">
+          <h3>58</h3>
+          <p>Wilayas</p>
+        </div>
+        <div class="hero-stat">
+          <h3 id="stat-brands">50+</h3>
+          <p>Brands</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CATEGORIES -->
+  <section class="section">
+    <div class="container">
+      <div class="section-title">
+        <h2>🔧 Categories</h2>
+        <a href="pages/search.html">View all →</a>
+      </div>
+      <div class="categories-grid" id="categories-grid">
+        <!-- Loaded dynamically -->
+      </div>
+    </div>
+  </section>
+
+  <!-- FEATURED PRODUCTS -->
+  <section class="section" style="background: var(--white);">
+    <div class="container">
+      <div class="section-title">
+        <h2>⭐ Featured Products</h2>
+        <a href="pages/search.html?featured=true">View all →</a>
+      </div>
+      <div class="products-grid" id="featured-products">
+        <!-- Loaded dynamically -->
+      </div>
+    </div>
+  </section>
+
+  <!-- LATEST PRODUCTS -->
+  <section class="section">
+    <div class="container">
+      <div class="section-title">
+        <h2>🆕 Latest Products</h2>
+        <a href="pages/search.html">View all →</a>
+      </div>
+      <div class="products-grid" id="latest-products">
+        <!-- Loaded dynamically -->
+      </div>
+    </div>
+  </section>
+
+  <!-- POPULAR BRANDS -->
+  <section class="section" style="background: var(--white);">
+    <div class="container">
+      <div class="section-title">
+        <h2>🏭 Popular Brands</h2>
+      </div>
+      <div class="categories-grid" id="brands-grid">
+        <!-- Loaded dynamically -->
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-grid">
+        <div class="footer-col">
+          <h3>AutoMarket DZ</h3>
+          <p>The first marketplace dedicated to vehicle spare parts in Algeria. Find everything you need for your car, truck, or motorcycle from trusted sellers across all 58 wilayas.</p>
+        </div>
+        <div class="footer-col">
+          <h3>Quick Links</h3>
+          <ul>
+            <li><a href="pages/search.html">All Products</a></li>
+            <li><a href="pages/search.html">Stores</a></li>
+            <li><a href="#">About Us</a></li>
+            <li><a href="#">Contact</a></li>
+          </ul>
+        </div>
+        <div class="footer-col">
+          <h3>Categories</h3>
+          <ul>
+            <li><a href="pages/search.html?category=moteur">Engine</a></li>
+            <li><a href="pages/search.html?category=freinage">Braking</a></li>
+            <li><a href="pages/search.html?category=suspension">Suspension</a></li>
+            <li><a href="pages/search.html?category=electricite">Electrical</a></li>
+          </ul>
+        </div>
+        <div class="footer-col">
+          <h3>Contact</h3>
+          <ul>
+            <li><a href="mailto:contact@automarket.dz">📧 contact@automarket.dz</a></li>
+            <li><a href="tel:+213555000000">📞 +213 555 000 000</a></li>
+            <li><a href="#">📍 Algiers, Algeria</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <p>&copy; 2026 AutoMarket DZ. All rights reserved.</p>
+      </div>
+    </div>
+  </footer>
+
+  <script src="js/app.js"></script>
+  <script>
+    const categoryIcons = {
+      'moteur': '⚙️', 'freinage': '🔴', 'suspension': '🔩', 'electricite': '⚡',
+      'carrosserie': '🚗', 'transmission': '⚙️', 'climatisation': '❄️', 'echappement': '💨',
+      'filtration': '🔵', 'huiles-fluides': '🛢️', 'pneus-roues': '⭕', 'accessoires': '🔑'
+    };
+
+    let selectedVehicleType = 'car';
+
+    function selectVehicleType(type, el) {
+      selectedVehicleType = type;
+      document.querySelectorAll('.vehicle-type-card').forEach(c => c.classList.remove('active'));
+      el.classList.add('active');
+    }
+
+    function handleSearch() {
+      const q = document.getElementById('search-input').value;
+      const type = document.getElementById('search-vehicle-type').value;
+      let url = `pages/search.html?q=${encodeURIComponent(q)}`;
+      if (type) url += `&vehicle_type=${type}`;
+      window.location.href = url;
+    }
+
+    function handleHeroSearch() {
+      const q = document.getElementById('hero-search-input').value;
+      window.location.href = `pages/search.html?q=${encodeURIComponent(q)}&vehicle_type=${selectedVehicleType}`;
+    }
+
+    document.getElementById('search-input').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') handleSearch();
+    });
+
+    document.getElementById('hero-search-input').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') handleHeroSearch();
+    });
+
+    function renderProductCard(product) {
+      const imageUrl = product.primary_image ? `${UPLOAD_BASE}${product.primary_image}` : '';
+      const badgeClass = product.condition === 'new' ? 'badge-new' : product.condition === 'used' ? 'badge-used' : 'badge-sale';
+      const badgeText = product.condition === 'new' ? 'New' : product.condition === 'used' ? 'Used' : 'Refurbished';
+
+      return `
+        <div class="product-card" onclick="window.location.href='pages/product.html?id=${product.id}'">
+          <div class="image">
+            ${imageUrl ? `<img src="${imageUrl}" alt="${product.name}">` : `<span style="font-size:48px;color:#ccc">🔧</span>`}
+            <span class="badge ${badgeClass}">${badgeText}</span>
+          </div>
+          <div class="info">
+            <div class="category">${product.category_name || 'Parts'}</div>
+            <h3>${product.name}</h3>
+            <div class="price">
+              ${formatPrice(product.price)}
+              ${product.original_price ? `<span class="old-price">${formatPrice(product.original_price)}</span>` : ''}
+            </div>
+            <div class="meta">
+              <span class="rating">${renderStars(product.rating || 0)}</span>
+              <span class="location">📍 ${product.store_wilaya || ''}</span>
+            </div>
+          </div>
+          <div class="actions" onclick="event.stopPropagation()">
+            <button class="btn-add-cart" onclick="addToCart({id:'${product.id}',name:'${product.name.replace(/'/g, "\\'")}',price:${product.price},image:'${imageUrl}'})">
+              🛒 Add to Cart
+            </button>
+            <button class="btn-wishlist">♡</button>
+          </div>
+        </div>
+      `;
+    }
+
+    // Load page data
+    async function loadHomePage() {
+      try {
+        // Load categories
+        const categories = await loadCategories();
+        const catGrid = document.getElementById('categories-grid');
+        catGrid.innerHTML = categories.map(cat => `
+          <a href="pages/search.html?category=${cat.slug}" class="category-card">
+            <div class="icon">${categoryIcons[cat.slug] || '🔧'}</div>
+            <h3>${cat.name}</h3>
+            <p>${cat.product_count || 0} products</p>
+          </a>
+        `).join('');
+
+        // Load categories nav
+        const navList = document.getElementById('categories-nav-list');
+        navList.innerHTML = '<li><a href="pages/search.html">All Parts</a></li>' +
+          categories.slice(0, 8).map(cat => `
+            <li><a href="pages/search.html?category=${cat.slug}">${cat.name}</a></li>
+          `).join('');
+
+        // Load featured products
+        const featured = await loadProducts({ featured: true, limit: 4 });
+        const featuredGrid = document.getElementById('featured-products');
+        if (featured.data && featured.data.length > 0) {
+          featuredGrid.innerHTML = featured.data.map(renderProductCard).join('');
+        } else {
+          featuredGrid.innerHTML = '<p style="color:var(--gray);padding:20px;">No featured products yet.</p>';
+        }
+
+        // Load latest products
+        const latest = await loadProducts({ limit: 8 });
+        const latestGrid = document.getElementById('latest-products');
+        if (latest.data && latest.data.length > 0) {
+          latestGrid.innerHTML = latest.data.map(renderProductCard).join('');
+        } else {
+          latestGrid.innerHTML = '<p style="color:var(--gray);padding:20px;">No products yet.</p>';
+        }
+
+        // Load brands
+        const brands = await loadBrands();
+        const brandsGrid = document.getElementById('brands-grid');
+        brandsGrid.innerHTML = brands.slice(0, 12).map(brand => `
+          <a href="pages/search.html?brand_id=${brand.id}" class="category-card">
+            <div class="icon">${brand.vehicle_type === 'car' ? '🚗' : brand.vehicle_type === 'truck' ? '🚛' : '🏍️'}</div>
+            <h3>${brand.name}</h3>
+          </a>
+        `).join('');
+      } catch (error) {
+        console.error('Error loading homepage:', error);
+      }
+    }
+
+    loadHomePage();
+  </script>
+</body>
+</html>

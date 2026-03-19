@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>إدارة الأصناف - AutoMarket DZ</title>
+    <link rel="stylesheet" href="../css/admin.css">
+</head>
+<body>
+<div class="dashboard-layout">
+    <aside class="sidebar"></aside>
+    <main class="main-content">
+        <div class="topbar">
+            <h1>📂 إدارة الأصناف</h1>
+            <div class="topbar-actions">
+                <button class="btn btn-primary" onclick="showAddModal()">+ إضافة صنف</button>
+                <button class="btn btn-outline" onclick="showAddBrandModal()">+ إضافة ماركة</button>
+            </div>
+        </div>
+        <div class="page-content">
+            <div class="stats-grid">
+                <div class="stat-card"><div class="stat-icon blue">📂</div><h3 id="totalCats">-</h3><p>إجمالي الأصناف</p></div>
+                <div class="stat-card"><div class="stat-icon green">🚗</div><h3 id="carBrands">-</h3><p>ماركات السيارات</p></div>
+                <div class="stat-card"><div class="stat-icon orange">🚛</div><h3 id="truckBrands">-</h3><p>ماركات الشاحنات</p></div>
+                <div class="stat-card"><div class="stat-icon purple">🏍️</div><h3 id="motoBrands">-</h3><p>ماركات الدراجات</p></div>
+            </div>
+
+            <div class="table-container">
+                <div class="table-header"><h3>الأصناف الرئيسية</h3></div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>الأيقونة</th>
+                            <th>الاسم</th>
+                            <th>الاسم بالعربية</th>
+                            <th>الوصف</th>
+                            <th>المنتجات</th>
+                            <th>الإجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody id="categoriesTable"><tr><td colspan="6"><div class="loading-spinner"></div></td></tr></tbody>
+                </table>
+            </div>
+
+            <div class="table-container" style="margin-top:20px;">
+                <div class="table-header">
+                    <h3>ماركات المركبات</h3>
+                    <select id="brandTypeFilter" class="search-input" onchange="loadBrands()">
+                        <option value="">كل الأنواع</option>
+                        <option value="car">سيارة</option>
+                        <option value="truck">شاحنة</option>
+                        <option value="motorcycle">دراجة نارية</option>
+                    </select>
+                </div>
+                <table>
+                    <thead><tr><th>الماركة</th><th>النوع</th><th>الموديلات</th><th>الإجراءات</th></tr></thead>
+                    <tbody id="brandsTable"><tr><td colspan="4"><div class="loading-spinner"></div></td></tr></tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+</div>
+<div id="catModal" style="display:none;"></div>
+<script src="../js/admin.js"></script>
+<script>
+    const auth = checkAuth();
+    if (auth) { renderSidebar('categories'); loadCategories(); loadBrands(); }
+
+    async function loadCategories() {
+        try {
+            const res = await apiRequest('/categories');
+            const cats = res.data || res.categories || res || [];
+            document.getElementById('totalCats').textContent = cats.length;
+            document.getElementById('categoriesTable').innerHTML = cats.map(c => `
+                <tr>
+                    <td style="font-size:24px">${c.icon || '📦'}</td>
+                    <td><strong>${c.name}</strong></td>
+                    <td>${c.name_ar || '-'}</td>
+                    <td style="font-size:13px;color:var(--gray);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.description || '-'}</td>
+                    <td><strong>${c.product_count || 0}</strong></td>
+                    <td>
+                        <div style="display:flex;gap:4px;">
+                            <button class="btn btn-sm btn-outline" onclick='editCategory(${JSON.stringify(c).replace(/'/g,"&#39;")})' title="تعديل">✏️</button>
+                            <button class="btn btn-sm btn-danger" onclick="deleteCategory('${c.id}')" title="حذف">🗑️</button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+            if (cats.length === 0) showEmpty('categoriesTable', '📂', 'لا يوجد أصناف', 'أضف صنف جديد للبدء');
+        } catch (err) {
+            showNotification(err.message, 'error');
+        }
+    }
+
+    async function loadBrands() {
+        try {
+            const res = await apiRequest('/brands');
+            let brands = res.data || res.brands || res || [];
+            const filter = document.getElementById('brandTypeFilter').value;
+
+            let cars = 0, trucks = 0, motos = 0;
+            brands.forEach(b => {
+                if (b.vehicle_type === 'car') cars++;
+                else if (b.vehicle_type === 'truck') trucks++;
+                else if (b.vehicle_type === 'motorcycle') motos++;
+            });
+            document.getElementById('carBrands').textContent = cars;
+            document.getElementById('truckBrands').textContent = trucks;
+            document.getElementById('motoBrands').textContent = motos;
+
+            if (filter) brands = brands.filter(b => b.vehicle_type === filter);
+
+            const typeMap = { car: 'سيارة', truck: 'شاحنة', motorcycle: 'دراجة' };
+            const typeIcon = { car: '🚗', truck: '🚛', motorcycle: '🏍️' };
+            document.getElementById('brandsTable').innerHTML = brands.map(b => `
+                <tr>
+                    <td><strong>${typeIcon[b.vehicle_type] || ''} ${b.name}</strong></td>
+                    <td><span class="badge badge-info">${typeMap[b.vehicle_type] || b.vehicle_type}</span></td>
+                    <td>${b.model_count || 0}</td>
+                    <td>
+                        <button class="btn btn-sm btn-danger" onclick="deleteBrand('${b.id}')" title="حذف">🗑️</button>
+                    </td>
+                </tr>
+            `).join('');
+            if (brands.length === 0) showEmpty('brandsTable', '🚗', 'لا يوجد ماركات', 'أضف ماركة جديدة');
+        } catch (err) { console.error(err); }
+    }
+
+    function showAddModal() {
+        document.getElementById('catModal').style.display = '';
+        document.getElementById('catModal').innerHTML = `
+            <div class="modal-overlay" onclick="closeModal()">
+                <div class="modal" onclick="event.stopPropagation()" style="max-width:500px;">
+                    <h2 style="display:flex;justify-content:space-between;align-items:center;">
+                        إضافة صنف جديد
+                        <button class="btn btn-sm btn-outline" onclick="closeModal()">✕</button>
+                    </h2>
+                    <form onsubmit="saveCategory(event)">
+                        <div class="form-row">
+                            <div class="form-group"><label>الاسم (فرنسي/إنجليزي)</label><input id="catName" required class="form-control"></div>
+                            <div class="form-group"><label>الاسم بالعربية</label><input id="catNameAr" class="form-control"></div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group"><label>الأيقونة (إيموجي)</label><input id="catIcon" placeholder="🔧" class="form-control"></div>
+                            <div class="form-group"><label>الوصف</label><input id="catDesc" class="form-control"></div>
+                        </div>
+                        <button type="submit" class="btn btn-primary" style="width:100%;margin-top:8px;">حفظ الصنف</button>
+                    </form>
+                </div>
+            </div>`;
+    }
+
+    function editCategory(c) {
+        document.getElementById('catModal').style.display = '';
+        document.getElementById('catModal').innerHTML = `
+            <div class="modal-overlay" onclick="closeModal()">
+                <div class="modal" onclick="event.stopPropagation()" style="max-width:500px;">
+                    <h2 style="display:flex;justify-content:space-between;align-items:center;">
+                        تعديل الصنف
+                        <button class="btn btn-sm btn-outline" onclick="closeModal()">✕</button>
+                    </h2>
+                    <form onsubmit="updateCategory(event, '${c.id}')">
+                        <div class="form-row">
+                            <div class="form-group"><label>الاسم</label><input id="catName" value="${c.name || ''}" required class="form-control"></div>
+                            <div class="form-group"><label>الاسم بالعربية</label><input id="catNameAr" value="${c.name_ar || ''}" class="form-control"></div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group"><label>الأيقونة</label><input id="catIcon" value="${c.icon || ''}" class="form-control"></div>
+                            <div class="form-group"><label>الوصف</label><input id="catDesc" value="${c.description || ''}" class="form-control"></div>
+                        </div>
+                        <button type="submit" class="btn btn-primary" style="width:100%;margin-top:8px;">تحديث الصنف</button>
+                    </form>
+                </div>
+            </div>`;
+    }
+
+    async function saveCategory(e) {
+        e.preventDefault();
+        try {
+            await apiRequest('/admin/categories', {
+                method: 'POST',
+                body: JSON.stringify({
+                    name: document.getElementById('catName').value,
+                    name_ar: document.getElementById('catNameAr').value,
+                    icon: document.getElementById('catIcon').value,
+                    description: document.getElementById('catDesc').value,
+                })
+            });
+            showNotification('تم إضافة الصنف بنجاح');
+            closeModal();
+            loadCategories();
+        } catch (err) {
+            showNotification(err.message, 'error');
+        }
+    }
+
+    async function updateCategory(e, id) {
+        e.preventDefault();
+        try {
+            await apiRequest(`/admin/categories/${id}`, {
+                method: 'PUT',
+                body: JSON.stringify({
+                    name: document.getElementById('catName').value,
+                    name_ar: document.getElementById('catNameAr').value,
+                    icon: document.getElementById('catIcon').value,
+                    description: document.getElementById('catDesc').value,
+                })
+            });
+            showNotification('تم تحديث الصنف');
+            closeModal();
+            loadCategories();
+        } catch (err) {
+            showNotification(err.message, 'error');
+        }
+    }
+
+    async function deleteCategory(id) {
+        if (!confirmAction('هل أنت متأكد من حذف هذا الصنف؟')) return;
+        try {
+            await apiRequest(`/admin/categories/${id}`, { method: 'DELETE' });
+            showNotification('تم حذف الصنف');
+            loadCategories();
+        } catch (err) { showNotification(err.message, 'error'); }
+    }
+
+    function showAddBrandModal() {
+        document.getElementById('catModal').style.display = '';
+        document.getElementById('catModal').innerHTML = `
+            <div class="modal-overlay" onclick="closeModal()">
+                <div class="modal" onclick="event.stopPropagation()" style="max-width:450px;">
+                    <h2 style="display:flex;justify-content:space-between;align-items:center;">
+                        إضافة ماركة
+                        <button class="btn btn-sm btn-outline" onclick="closeModal()">✕</button>
+                    </h2>
+                    <form onsubmit="saveBrand(event)">
+                        <div class="form-group"><label>اسم الماركة</label><input id="brandName" required class="form-control"></div>
+                        <div class="form-group"><label>نوع المركبة</label>
+                            <select id="brandType" required class="form-control" style="width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:6px;">
+                                <option value="car">🚗 سيارة</option>
+                                <option value="truck">🚛 شاحنة</option>
+                                <option value="motorcycle">🏍️ دراجة نارية</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-primary" style="width:100%;margin-top:8px;">حفظ الماركة</button>
+                    </form>
+                </div>
+            </div>`;
+    }
+
+    async function saveBrand(e) {
+        e.preventDefault();
+        try {
+            await apiRequest('/admin/brands', {
+                method: 'POST',
+                body: JSON.stringify({
+                    name: document.getElementById('brandName').value,
+                    vehicle_type: document.getElementById('brandType').value,
+                })
+            });
+            showNotification('تم إضافة الماركة');
+            closeModal();
+            loadBrands();
+        } catch (err) { showNotification(err.message, 'error'); }
+    }
+
+    async function deleteBrand(id) {
+        if (!confirmAction('هل أنت متأكد من حذف هذه الماركة؟')) return;
+        try {
+            await apiRequest(`/admin/brands/${id}`, { method: 'DELETE' });
+            showNotification('تم حذف الماركة');
+            loadBrands();
+        } catch (err) { showNotification(err.message, 'error'); }
+    }
+
+    function closeModal() {
+        document.getElementById('catModal').style.display = 'none';
+    }
+</script>
+</body>
+</html>

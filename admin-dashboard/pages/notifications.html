@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>الإشعارات - AutoMarket DZ</title>
+    <link rel="stylesheet" href="../css/admin.css">
+    <style>
+        .notif-form { background: var(--white); border-radius: var(--radius); box-shadow: var(--shadow); padding: 24px; margin-bottom: 24px; }
+        .notif-form h3 { font-size: 16px; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+        .form-row { display: flex; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+        .form-row .form-group { flex: 1; min-width: 200px; }
+        .form-group label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; color: var(--gray-dark); }
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%; padding: 10px 14px; border: 1px solid var(--border); border-radius: 6px; font-size: 14px;
+        }
+        .form-group textarea { resize: none; }
+        .target-toggle { display: flex; gap: 8px; margin-bottom: 12px; }
+        .target-toggle button {
+            padding: 8px 16px; border: 1px solid var(--border); border-radius: 6px; background: var(--white);
+            cursor: pointer; font-size: 13px; transition: all 0.2s;
+        }
+        .target-toggle button.active { background: var(--primary); color: white; border-color: var(--primary); }
+
+        .notif-list { background: var(--white); border-radius: var(--radius); box-shadow: var(--shadow); }
+        .notif-item {
+            display: flex; align-items: flex-start; gap: 12px; padding: 16px 20px;
+            border-bottom: 1px solid var(--border); transition: background 0.2s;
+        }
+        .notif-item:last-child { border-bottom: none; }
+        .notif-item:hover { background: var(--gray-light); }
+        .notif-icon {
+            width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center;
+            justify-content: center; font-size: 18px; flex-shrink: 0;
+        }
+        .notif-icon.info { background: #DBEAFE; }
+        .notif-icon.warning { background: #FEF3C7; }
+        .notif-icon.success { background: #D1FAE5; }
+        .notif-icon.danger { background: #FEE2E2; }
+        .notif-icon.order { background: #E0E7FF; }
+        .notif-icon.system { background: #F3E8FF; }
+        .notif-body { flex: 1; }
+        .notif-body h4 { font-size: 14px; margin-bottom: 4px; }
+        .notif-body p { font-size: 13px; color: var(--gray); margin-bottom: 4px; }
+        .notif-meta { font-size: 12px; color: var(--gray); display: flex; gap: 12px; }
+        .notif-actions { display: flex; gap: 6px; align-items: center; }
+    </style>
+</head>
+<body>
+<div class="dashboard-layout">
+    <aside class="sidebar"></aside>
+    <main class="main-content">
+        <div class="topbar">
+            <h1>🔔 الإشعارات</h1>
+        </div>
+        <div class="page-content">
+            <!-- Send notification form -->
+            <div class="notif-form">
+                <h3>📤 إرسال إشعار</h3>
+                <div class="target-toggle">
+                    <button class="active" id="btn-specific" onclick="setTarget('specific')">👤 مستخدم محدد</button>
+                    <button id="btn-all" onclick="setTarget('all')">👥 جميع المستخدمين</button>
+                </div>
+                <div id="user-target-field" class="form-row">
+                    <div class="form-group">
+                        <label>البريد الإلكتروني للمستخدم</label>
+                        <input type="email" id="notifEmail" placeholder="user@example.com">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>العنوان</label>
+                        <input type="text" id="notifTitle" placeholder="عنوان الإشعار">
+                    </div>
+                    <div class="form-group" style="max-width:180px;">
+                        <label>النوع</label>
+                        <select id="notifType">
+                            <option value="info">📢 معلومات</option>
+                            <option value="warning">⚠️ تحذير</option>
+                            <option value="success">✅ نجاح</option>
+                            <option value="danger">🚨 خطر</option>
+                            <option value="order">🛒 طلب</option>
+                            <option value="system">⚙️ نظام</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group" style="margin-bottom: 16px;">
+                    <label>الرسالة</label>
+                    <textarea id="notifMessage" rows="3" placeholder="محتوى الإشعار..."></textarea>
+                </div>
+                <button class="btn btn-primary" onclick="sendNotification()">📩 إرسال الإشعار</button>
+            </div>
+
+            <!-- Notification history -->
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+                <h3 style="font-size:16px;">📋 سجل الإشعارات المرسلة</h3>
+            </div>
+            <div class="notif-list" id="notif-list">
+                <div style="padding:40px;text-align:center;color:var(--gray);">جاري التحميل...</div>
+            </div>
+            <div id="notif-pagination"></div>
+        </div>
+    </main>
+</div>
+
+<script src="../js/admin.js"></script>
+<script>
+    const auth = checkAuth();
+    if (auth) {
+        renderSidebar('notifications');
+        loadNotifications();
+    }
+
+    let sendToAll = false;
+
+    function setTarget(target) {
+        sendToAll = target === 'all';
+        document.getElementById('btn-specific').classList.toggle('active', !sendToAll);
+        document.getElementById('btn-all').classList.toggle('active', sendToAll);
+        document.getElementById('user-target-field').style.display = sendToAll ? 'none' : 'flex';
+    }
+
+    async function sendNotification() {
+        const title = document.getElementById('notifTitle').value.trim();
+        const message = document.getElementById('notifMessage').value.trim();
+        const type = document.getElementById('notifType').value;
+        const email = document.getElementById('notifEmail').value.trim();
+
+        if (!title || !message) {
+            showNotification('يرجى إدخال العنوان والرسالة', 'error');
+            return;
+        }
+        if (!sendToAll && !email) {
+            showNotification('يرجى إدخال البريد الإلكتروني للمستخدم', 'error');
+            return;
+        }
+
+        const body = { title, message, type };
+        if (sendToAll) {
+            body.send_to_all = true;
+        } else {
+            body.user_email = email;
+        }
+
+        try {
+            const res = await apiRequest('/admin/notifications', {
+                method: 'POST',
+                body: JSON.stringify(body),
+            });
+            showNotification(res.message || 'تم إرسال الإشعار بنجاح');
+            document.getElementById('notifTitle').value = '';
+            document.getElementById('notifMessage').value = '';
+            document.getElementById('notifEmail').value = '';
+            loadNotifications();
+        } catch (err) {
+            showNotification('فشل إرسال الإشعار: ' + err.message, 'error');
+        }
+    }
+
+    async function loadNotifications(page = 1) {
+        try {
+            const data = await apiRequest(`/admin/notifications?page=${page}&limit=20`);
+            const list = data.notifications || [];
+            const container = document.getElementById('notif-list');
+
+            if (list.length === 0) {
+                container.innerHTML = '<div style="padding:40px;text-align:center;color:var(--gray);">📭 لا توجد إشعارات مرسلة</div>';
+                return;
+            }
+
+            const typeIcons = { info: '📢', warning: '⚠️', success: '✅', danger: '🚨', order: '🛒', system: '⚙️' };
+
+            container.innerHTML = list.map(n => `
+                <div class="notif-item">
+                    <div class="notif-icon ${n.type || 'info'}">${typeIcons[n.type] || '📢'}</div>
+                    <div class="notif-body">
+                        <h4>${n.title}</h4>
+                        <p>${n.message}</p>
+                        <div class="notif-meta">
+                            <span>👤 ${n.first_name ? n.first_name + ' ' + n.last_name : 'غير معروف'}</span>
+                            <span>📧 ${n.user_email || '-'}</span>
+                            <span>🕐 ${timeAgo(n.created_at)}</span>
+                            <span>${n.is_read ? '✅ مقروء' : '🔵 غير مقروء'}</span>
+                        </div>
+                    </div>
+                    <div class="notif-actions">
+                        <button class="btn btn-sm btn-danger" onclick="deleteNotif('${n.id}')">🗑️</button>
+                    </div>
+                </div>
+            `).join('');
+
+            if (data.pagination) {
+                renderPagination('notif-pagination', data.pagination, 'loadNotifications');
+            }
+        } catch (err) {
+            document.getElementById('notif-list').innerHTML =
+                '<div style="padding:40px;text-align:center;color:var(--danger);">فشل تحميل الإشعارات</div>';
+        }
+    }
+
+    async function deleteNotif(id) {
+        if (!confirmAction('هل تريد حذف هذا الإشعار؟')) return;
+        try {
+            await apiRequest(`/admin/notifications/${id}`, { method: 'DELETE' });
+            showNotification('تم حذف الإشعار');
+            loadNotifications();
+        } catch (err) {
+            showNotification('فشل الحذف: ' + err.message, 'error');
+        }
+    }
+</script>
+</body>
+</html>

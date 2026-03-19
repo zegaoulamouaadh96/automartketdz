@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: automarket_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: automarket_dz
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres123
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Meilisearch
+  meilisearch:
+    image: getmeili/meilisearch:v1.5
+    container_name: automarket_search
+    restart: unless-stopped
+    environment:
+      MEILI_MASTER_KEY: automarket_master_key_2024
+    ports:
+      - "7700:7700"
+    volumes:
+      - msdata:/meili_data
+
+  # Backend API
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: automarket_api
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: automarket_dz
+      DB_USER: postgres
+      DB_PASSWORD: postgres123
+      JWT_SECRET: automarket_jwt_secret_key_2024_super_secure
+      JWT_EXPIRES_IN: 7d
+      MEILISEARCH_HOST: http://meilisearch:7700
+      MEILISEARCH_API_KEY: automarket_master_key_2024
+    depends_on:
+      postgres:
+        condition: service_healthy
+      meilisearch:
+        condition: service_started
+    volumes:
+      - uploads:/app/uploads
+
+volumes:
+  pgdata:
+  msdata:
+  uploads:

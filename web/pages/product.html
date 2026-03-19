@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Product - AutoMarket DZ</title>
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+  <header class="header">
+    <div class="container">
+      <div class="header-top">
+        <a href="../index.html" class="logo"><span>AUTO</span>MARKET<span> DZ</span></a>
+        <div class="search-bar">
+          <input type="text" id="search-input" placeholder="Search spare parts...">
+          <button onclick="window.location.href='search.html?q='+document.getElementById('search-input').value">🔍</button>
+        </div>
+        <div class="header-actions" id="auth-links"></div>
+      </div>
+    </div>
+  </header>
+
+  <div class="container product-detail">
+    <div id="product-content">
+      <div class="loading"><div class="spinner"></div></div>
+    </div>
+  </div>
+
+  <script src="../js/app.js"></script>
+  <script>
+    const productId = new URLSearchParams(window.location.search).get('id');
+    let productData = null;
+
+    async function loadProductDetail() {
+      if (!productId) return;
+      try {
+        const data = await loadProduct(productId);
+        productData = data.product;
+        renderProduct(productData);
+        document.title = `${productData.name} - AutoMarket DZ`;
+      } catch (error) {
+        document.getElementById('product-content').innerHTML = '<p style="color:var(--danger);padding:40px;text-align:center;">Product not found.</p>';
+      }
+    }
+
+    function renderProduct(product) {
+      const html = `
+        <div class="product-detail-grid">
+          <div class="product-gallery">
+            <div class="main-image" id="main-image">
+              ${product.images && product.images.length > 0
+                ? `<img src="${UPLOAD_BASE}${product.images[0].url}" alt="${product.name}">`
+                : '<span style="font-size:80px;color:#ccc">🔧</span>'}
+            </div>
+            ${product.images && product.images.length > 1 ? `
+              <div class="thumbnails">
+                ${product.images.map((img, i) => `
+                  <img src="${UPLOAD_BASE}${img.url}" alt="" class="${i === 0 ? 'active' : ''}"
+                    onclick="changeImage(this, '${UPLOAD_BASE}${img.url}')">
+                `).join('')}
+              </div>
+            ` : ''}
+          </div>
+
+          <div class="product-info">
+            <div class="category" style="color:var(--primary);font-weight:600;font-size:13px;text-transform:uppercase;margin-bottom:8px;">
+              ${product.category_name || 'Parts'}
+            </div>
+            <h1>${product.name}</h1>
+            
+            <div class="price-section">
+              <span class="current-price">${formatPrice(product.price)}</span>
+              ${product.original_price ? `<span class="original-price">${formatPrice(product.original_price)}</span>` : ''}
+            </div>
+
+            <div style="display:flex;gap:16px;margin-bottom:16px;font-size:14px;color:var(--gray);">
+              <span>⭐ ${product.rating || 0}/5 (${product.total_reviews || 0} reviews)</span>
+              <span>👁 ${product.views || 0} views</span>
+              <span>📦 ${product.total_sold || 0} sold</span>
+            </div>
+
+            <table class="details-table">
+              <tr><td>Condition</td><td>${product.condition === 'new' ? '🟢 New' : product.condition === 'used' ? '🟡 Used' : '🔵 Refurbished'}</td></tr>
+              <tr><td>Store</td><td><a href="store.html?id=${product.store_slug}" style="color:var(--primary)">${product.store_name}</a></td></tr>
+              <tr><td>Location</td><td>📍 ${product.store_wilaya}</td></tr>
+              <tr><td>Stock</td><td>${product.quantity > 0 ? `✅ ${product.quantity} available` : '❌ Out of stock'}</td></tr>
+              ${product.sku ? `<tr><td>SKU</td><td>${product.sku}</td></tr>` : ''}
+              ${product.warranty ? `<tr><td>Warranty</td><td>${product.warranty}</td></tr>` : ''}
+            </table>
+
+            ${product.fitments && product.fitments.length > 0 ? `
+              <h3 style="margin:16px 0 8px;">Compatible Vehicles</h3>
+              <div style="display:flex;flex-wrap:wrap;gap:8px;">
+                ${product.fitments.map(f => `
+                  <span style="background:var(--gray-light);padding:6px 12px;border-radius:20px;font-size:13px;">
+                    ${f.brand_name || ''} ${f.model_name || ''} ${f.year_start ? `(${f.year_start}-${f.year_end || '...'})` : ''}
+                  </span>
+                `).join('')}
+              </div>
+            ` : ''}
+
+            ${product.oem_references && product.oem_references.length > 0 ? `
+              <h3 style="margin:16px 0 8px;">OEM References</h3>
+              <div style="display:flex;flex-wrap:wrap;gap:8px;">
+                ${product.oem_references.map(o => `
+                  <span style="background:#EFF6FF;padding:6px 12px;border-radius:20px;font-size:13px;color:var(--info);">
+                    ${o.oem_number} ${o.manufacturer ? `(${o.manufacturer})` : ''}
+                  </span>
+                `).join('')}
+              </div>
+            ` : ''}
+
+            <div class="quantity-selector">
+              <button onclick="changeQty(-1)">−</button>
+              <input type="number" id="qty" value="1" min="1" max="${product.quantity}">
+              <button onclick="changeQty(1)">+</button>
+            </div>
+
+            <div class="action-buttons">
+              <button class="btn-buy" onclick="handleAddToCart()">🛒 Add to Cart</button>
+              <button class="btn-contact" onclick="contactSeller()">💬 Contact Seller</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Description -->
+        ${product.description ? `
+          <div style="background:var(--white);border-radius:var(--radius-lg);padding:24px;margin-top:24px;box-shadow:var(--shadow);">
+            <h3>Description</h3>
+            <p style="margin-top:12px;color:var(--gray);line-height:1.8;">${product.description}</p>
+          </div>
+        ` : ''}
+
+        <!-- Reviews -->
+        <div style="background:var(--white);border-radius:var(--radius-lg);padding:24px;margin-top:24px;box-shadow:var(--shadow);">
+          <h3>Reviews (${product.reviews ? product.reviews.length : 0})</h3>
+          <div id="reviews-section" style="margin-top:16px;">
+            ${product.reviews && product.reviews.length > 0 ? product.reviews.map(r => `
+              <div style="padding:16px 0;border-bottom:1px solid var(--border);">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                  <strong>${r.first_name} ${r.last_name}</strong>
+                  <span style="color:var(--warning)">${renderStars(r.rating)}</span>
+                </div>
+                <p style="color:var(--gray);margin-top:8px;">${r.comment || ''}</p>
+                <span style="font-size:12px;color:var(--gray);">${formatDate(r.created_at)}</span>
+              </div>
+            `).join('') : '<p style="color:var(--gray);">No reviews yet.</p>'}
+          </div>
+
+          ${state.token ? `
+            <div style="margin-top:20px;padding-top:20px;border-top:1px solid var(--border);">
+              <h4>Write a Review</h4>
+              <div class="form-group" style="margin-top:12px;">
+                <label>Rating</label>
+                <select id="review-rating" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:var(--radius);">
+                  <option value="5">⭐⭐⭐⭐⭐ Excellent</option>
+                  <option value="4">⭐⭐⭐⭐ Good</option>
+                  <option value="3">⭐⭐⭐ Average</option>
+                  <option value="2">⭐⭐ Poor</option>
+                  <option value="1">⭐ Very Poor</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Comment</label>
+                <textarea id="review-comment" rows="3" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:var(--radius);resize:vertical;"></textarea>
+              </div>
+              <button class="btn-submit" onclick="handleReview()">Submit Review</button>
+            </div>
+          ` : '<p style="margin-top:16px;color:var(--gray);"><a href="login.html" style="color:var(--primary);">Login</a> to write a review.</p>'}
+        </div>
+      `;
+
+      document.getElementById('product-content').innerHTML = html;
+    }
+
+    function changeImage(thumb, url) {
+      document.querySelector('.main-image').innerHTML = `<img src="${url}" alt="">`;
+      document.querySelectorAll('.thumbnails img').forEach(t => t.classList.remove('active'));
+      thumb.classList.add('active');
+    }
+
+    function changeQty(delta) {
+      const input = document.getElementById('qty');
+      const newVal = parseInt(input.value) + delta;
+      if (newVal >= 1 && newVal <= parseInt(input.max)) {
+        input.value = newVal;
+      }
+    }
+
+    function handleAddToCart() {
+      if (!productData) return;
+      const qty = parseInt(document.getElementById('qty').value);
+      for (let i = 0; i < qty; i++) {
+        addToCart({
+          id: productData.id,
+          name: productData.name,
+          price: productData.price,
+          image: productData.images?.[0]?.url || '',
+        });
+      }
+    }
+
+    function contactSeller() {
+      if (!state.token) {
+        window.location.href = 'login.html';
+        return;
+      }
+      showToast('Chat feature - Contact seller via messages', 'info');
+    }
+
+    async function handleReview() {
+      try {
+        const rating = parseInt(document.getElementById('review-rating').value);
+        const comment = document.getElementById('review-comment').value;
+        await submitReview(productId, rating, comment);
+        showToast('Review submitted!', 'success');
+        loadProductDetail(); // Reload
+      } catch (error) {
+        showToast(error.message, 'danger');
+      }
+    }
+
+    loadProductDetail();
+  </script>
+</body>
+</html>

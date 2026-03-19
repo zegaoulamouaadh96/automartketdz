@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Orders - AutoMarket DZ</title>
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+  <header class="header">
+    <div class="container">
+      <div class="header-top">
+        <a href="../index.html" class="logo"><span>AUTO</span>MARKET<span> DZ</span></a>
+        <div class="header-actions" id="auth-links"></div>
+      </div>
+    </div>
+  </header>
+
+  <main class="main-content">
+    <div class="container">
+      <h1 class="page-title">📦 My Orders</h1>
+
+      <div class="orders-filters">
+        <button class="filter-btn active" onclick="filterOrders('', this)">All</button>
+        <button class="filter-btn" onclick="filterOrders('pending', this)">Pending</button>
+        <button class="filter-btn" onclick="filterOrders('confirmed', this)">Confirmed</button>
+        <button class="filter-btn" onclick="filterOrders('processing', this)">Processing</button>
+        <button class="filter-btn" onclick="filterOrders('shipped', this)">Shipped</button>
+        <button class="filter-btn" onclick="filterOrders('delivered', this)">Delivered</button>
+        <button class="filter-btn" onclick="filterOrders('cancelled', this)">Cancelled</button>
+      </div>
+
+      <div id="orders-list" class="orders-list">
+        <div class="loading">Loading orders...</div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="container">
+      <p>&copy; 2026 AutoMarket DZ. All rights reserved.</p>
+    </div>
+  </footer>
+
+  <script src="../js/app.js"></script>
+  <script>
+    let currentFilter = '';
+
+    document.addEventListener('DOMContentLoaded', () => {
+      updateAuthUI();
+      loadOrders();
+    });
+
+    async function loadOrders(status = '') {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        window.location.href = 'login.html';
+        return;
+      }
+
+      const url = status ? `${API_URL}/orders?status=${status}` : `${API_URL}/orders`;
+      try {
+        const res = await fetch(url, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+        renderOrders(data.data || []);
+      } catch (err) {
+        document.getElementById('orders-list').innerHTML = '<p class="error">Failed to load orders</p>';
+      }
+    }
+
+    function renderOrders(orders) {
+      const container = document.getElementById('orders-list');
+      if (orders.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-icon">📦</div>
+            <h3>No orders found</h3>
+            <p>Start shopping to see your orders here</p>
+            <a href="search.html" class="btn-primary">Browse Products</a>
+          </div>`;
+        return;
+      }
+
+      container.innerHTML = orders.map(order => `
+        <div class="order-card">
+          <div class="order-header">
+            <div>
+              <h3>Order #${order.order_number}</h3>
+              <p class="order-date">${new Date(order.created_at).toLocaleDateString('fr-FR')}</p>
+            </div>
+            <span class="badge badge-${getStatusColor(order.status)}">${order.status}</span>
+          </div>
+          <div class="order-body">
+            <p><strong>Store:</strong> ${order.store_name}</p>
+            <p><strong>Items:</strong> ${order.items ? order.items.length : 0} item(s)</p>
+            <div class="order-items-preview">
+              ${order.items ? order.items.map(item => `
+                <div class="order-item-mini">
+                  <span>${item.product_name}</span>
+                  <span>x${item.quantity}</span>
+                  <span>${formatPrice(item.total)}</span>
+                </div>
+              `).join('') : ''}
+            </div>
+          </div>
+          <div class="order-footer">
+            <div class="order-total">
+              <span>Total:</span>
+              <strong>${formatPrice(order.total)}</strong>
+            </div>
+            ${order.status === 'pending' ? `
+              <button class="btn-danger-sm" onclick="cancelOrder('${order.id}')">Cancel Order</button>
+            ` : ''}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function getStatusColor(status) {
+      const colors = {
+        pending: 'warning',
+        confirmed: 'info',
+        processing: 'info',
+        shipped: 'primary',
+        delivered: 'success',
+        cancelled: 'danger',
+        refunded: 'danger',
+      };
+      return colors[status] || 'secondary';
+    }
+
+    function filterOrders(status, btn) {
+      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentFilter = status;
+      loadOrders(status);
+    }
+
+    async function cancelOrder(orderId) {
+      if (!confirm('Are you sure you want to cancel this order?')) return;
+      const token = localStorage.getItem('token');
+      try {
+        const res = await fetch(`${API_URL}/orders/${orderId}/status`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({ status: 'cancelled', cancelled_reason: 'Cancelled by buyer' }),
+        });
+        if (res.ok) {
+          loadOrders(currentFilter);
+        } else {
+          alert('Failed to cancel order');
+        }
+      } catch (err) {
+        alert('Network error');
+      }
+    }
+  </script>
+</body>
+</html>

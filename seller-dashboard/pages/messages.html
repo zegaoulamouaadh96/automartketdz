@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Messages - Seller Dashboard</title>
+  <link rel="stylesheet" href="../css/dashboard.css">
+  <style>
+    .chat-layout { display: flex; height: calc(100vh - 130px); background: white; border-radius: 8px; overflow: hidden; box-shadow: var(--shadow); }
+    .chat-list { width: 320px; border-right: 1px solid var(--border); overflow-y: auto; }
+    .chat-list-item { padding: 15px; border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.2s; }
+    .chat-list-item:hover, .chat-list-item.active { background: #FFF7ED; }
+    .chat-list-item h4 { font-size: 14px; margin-bottom: 4px; }
+    .chat-list-item p { font-size: 12px; color: var(--gray); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .chat-list-item .unread { background: var(--primary); color: white; border-radius: 50%; width: 20px; height: 20px; font-size: 11px; display: flex; align-items: center; justify-content: center; float: right; }
+    .chat-main { flex: 1; display: flex; flex-direction: column; }
+    .chat-header { padding: 15px 20px; border-bottom: 1px solid var(--border); font-weight: 600; }
+    .chat-messages { flex: 1; overflow-y: auto; padding: 20px; }
+    .chat-message { margin-bottom: 15px; max-width: 70%; }
+    .chat-message.sent { margin-left: auto; }
+    .chat-message .bubble { padding: 10px 15px; border-radius: 12px; font-size: 14px; }
+    .chat-message.received .bubble { background: var(--gray-light); }
+    .chat-message.sent .bubble { background: var(--primary); color: white; }
+    .chat-message .time { font-size: 11px; color: var(--gray); margin-top: 4px; }
+    .chat-input { padding: 15px 20px; border-top: 1px solid var(--border); display: flex; gap: 10px; }
+    .chat-input input { flex: 1; padding: 10px; border: 1px solid var(--border); border-radius: 20px; font-size: 14px; }
+    .chat-input button { background: var(--primary); color: white; border-radius: 50%; width: 40px; height: 40px; font-size: 18px; }
+    .chat-empty { display: flex; align-items: center; justify-content: center; flex: 1; color: var(--gray); }
+  </style>
+</head>
+<body>
+  <div class="dashboard-layout">
+    <aside class="sidebar" id="sidebar"></aside>
+    <div class="main-content">
+      <div class="topbar">
+        <h1>💬 Messages</h1>
+      </div>
+      <div class="page-content">
+        <div class="chat-layout">
+          <div class="chat-list" id="chat-list">
+            <div style="padding:20px;text-align:center;color:var(--gray);">Loading conversations...</div>
+          </div>
+          <div class="chat-main" id="chat-main">
+            <div class="chat-empty">
+              <div style="text-align:center;">
+                <div style="font-size:48px;">💬</div>
+                <p>Select a conversation to start chatting</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/dashboard.js"></script>
+  <script>
+    let currentConversation = null;
+    const userId = getUser().id;
+
+    document.addEventListener('DOMContentLoaded', () => {
+      if (!checkAuth()) return;
+      document.getElementById('sidebar').innerHTML = renderSidebar('messages');
+      loadConversations();
+    });
+
+    async function loadConversations() {
+      const res = await apiRequest('/chat/conversations');
+      if (res && res.ok) {
+        const list = document.getElementById('chat-list');
+        const convs = res.data.conversations || [];
+        if (convs.length === 0) {
+          list.innerHTML = '<div style="padding:30px;text-align:center;color:var(--gray);">No conversations yet</div>';
+          return;
+        }
+        list.innerHTML = convs.map(c => `
+          <div class="chat-list-item ${currentConversation === c.id ? 'active' : ''}"
+               onclick="openConversation('${c.id}')">
+            <h4>${c.other_first_name} ${c.other_last_name}</h4>
+            <p>${c.product_name ? '📦 ' + c.product_name : ''}</p>
+            <p>${c.last_message || 'No messages'}</p>
+            ${c.unread_count > 0 ? `<span class="unread">${c.unread_count}</span>` : ''}
+          </div>
+        `).join('');
+      }
+    }
+
+    async function openConversation(id) {
+      currentConversation = id;
+      const res = await apiRequest(`/chat/conversations/${id}/messages`);
+      if (res && res.ok) {
+        const msgs = res.data.messages || [];
+        const conv = res.data.conversation;
+        document.getElementById('chat-main').innerHTML = `
+          <div class="chat-header">Conversation</div>
+          <div class="chat-messages" id="messages-container">
+            ${msgs.map(m => `
+              <div class="chat-message ${m.sender_id === userId ? 'sent' : 'received'}">
+                <div class="bubble">${escapeHtml(m.content)}</div>
+                <div class="time">${new Date(m.created_at).toLocaleTimeString('fr-FR', {hour:'2-digit',minute:'2-digit'})}</div>
+              </div>
+            `).join('')}
+          </div>
+          <div class="chat-input">
+            <input type="text" id="message-input" placeholder="Type a message..." onkeydown="if(event.key==='Enter')sendMsg()">
+            <button onclick="sendMsg()">➤</button>
+          </div>
+        `;
+        const container = document.getElementById('messages-container');
+        container.scrollTop = container.scrollHeight;
+        loadConversations(); // refresh unread counts
+      }
+    }
+
+    async function sendMsg() {
+      const input = document.getElementById('message-input');
+      const content = input.value.trim();
+      if (!content || !currentConversation) return;
+
+      // Find receiver from conversation
+      const res = await apiRequest(`/chat/conversations/${currentConversation}/messages`);
+      if (res && res.ok) {
+        const conv = res.data.conversation;
+        const receiverId = conv.buyer_id === userId ? conv.seller_id : conv.buyer_id;
+        
+        const sendRes = await apiRequest('/chat/messages', {
+          method: 'POST',
+          body: JSON.stringify({ receiver_id: receiverId, content, product_id: conv.product_id }),
+        });
+        if (sendRes && sendRes.ok) {
+          input.value = '';
+          openConversation(currentConversation);
+        }
+      }
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+  </script>
+</body>
+</html>

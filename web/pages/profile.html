@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Profile - AutoMarket DZ</title>
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+  <header class="header">
+    <div class="container">
+      <div class="header-top">
+        <a href="../index.html" class="logo"><span>AUTO</span>MARKET<span> DZ</span></a>
+        <div class="header-actions" id="auth-links"></div>
+      </div>
+    </div>
+  </header>
+
+  <main class="main-content">
+    <div class="container">
+      <h1 class="page-title">👤 My Profile</h1>
+
+      <div class="profile-layout">
+        <div class="profile-sidebar">
+          <div class="profile-avatar" id="profile-avatar">
+            <div class="avatar-placeholder">👤</div>
+          </div>
+          <nav class="profile-nav">
+            <a href="#" class="active" onclick="showTab('info', this)">Personal Info</a>
+            <a href="#" onclick="showTab('password', this)">Change Password</a>
+            <a href="orders.html">My Orders</a>
+            <a href="cart.html">My Cart</a>
+            <a href="#" onclick="logout()">Logout</a>
+          </nav>
+        </div>
+
+        <div class="profile-content">
+          <div id="tab-info" class="profile-tab active">
+            <h2>Personal Information</h2>
+            <form id="profile-form" onsubmit="updateProfile(event)">
+              <div class="form-row">
+                <div class="form-group">
+                  <label>First Name</label>
+                  <input type="text" id="prof-firstname" required>
+                </div>
+                <div class="form-group">
+                  <label>Last Name</label>
+                  <input type="text" id="prof-lastname" required>
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label>Email</label>
+                  <input type="email" id="prof-email" readonly>
+                </div>
+                <div class="form-group">
+                  <label>Phone</label>
+                  <input type="tel" id="prof-phone">
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label>Wilaya</label>
+                  <select id="prof-wilaya">
+                    <option value="">Select Wilaya</option>
+                    <option value="Alger">Alger</option><option value="Oran">Oran</option>
+                    <option value="Constantine">Constantine</option><option value="Annaba">Annaba</option>
+                    <option value="Blida">Blida</option><option value="Batna">Batna</option>
+                    <option value="Sétif">Sétif</option><option value="Tizi Ouzou">Tizi Ouzou</option>
+                    <option value="Béjaïa">Béjaïa</option><option value="Tipaza">Tipaza</option>
+                    <option value="Boumerdès">Boumerdès</option><option value="Mostaganem">Mostaganem</option>
+                    <option value="Chlef">Chlef</option><option value="Tlemcen">Tlemcen</option>
+                    <option value="Médéa">Médéa</option><option value="Biskra">Biskra</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label>Address</label>
+                  <input type="text" id="prof-address">
+                </div>
+              </div>
+              <button type="submit" class="btn-primary">Save Changes</button>
+            </form>
+          </div>
+
+          <div id="tab-password" class="profile-tab" style="display:none;">
+            <h2>Change Password</h2>
+            <form id="password-form" onsubmit="changePassword(event)">
+              <div class="form-group">
+                <label>Current Password</label>
+                <input type="password" id="current-password" required>
+              </div>
+              <div class="form-group">
+                <label>New Password</label>
+                <input type="password" id="new-password" required minlength="6">
+              </div>
+              <div class="form-group">
+                <label>Confirm New Password</label>
+                <input type="password" id="confirm-password" required minlength="6">
+              </div>
+              <button type="submit" class="btn-primary">Update Password</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="container"><p>&copy; 2026 AutoMarket DZ. All rights reserved.</p></div>
+  </footer>
+
+  <script src="../js/app.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      updateAuthUI();
+      loadProfile();
+    });
+
+    async function loadProfile() {
+      const token = localStorage.getItem('token');
+      if (!token) { window.location.href = 'login.html'; return; }
+
+      try {
+        const res = await fetch(`${API_URL}/auth/profile`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+        if (res.ok) {
+          const u = data.user;
+          document.getElementById('prof-firstname').value = u.first_name || '';
+          document.getElementById('prof-lastname').value = u.last_name || '';
+          document.getElementById('prof-email').value = u.email || '';
+          document.getElementById('prof-phone').value = u.phone || '';
+          document.getElementById('prof-wilaya').value = u.wilaya || '';
+          document.getElementById('prof-address').value = u.address || '';
+        }
+      } catch (err) { console.error(err); }
+    }
+
+    async function updateProfile(e) {
+      e.preventDefault();
+      const token = localStorage.getItem('token');
+      try {
+        const res = await fetch(`${API_URL}/auth/profile`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({
+            first_name: document.getElementById('prof-firstname').value,
+            last_name: document.getElementById('prof-lastname').value,
+            phone: document.getElementById('prof-phone').value,
+            wilaya: document.getElementById('prof-wilaya').value,
+            address: document.getElementById('prof-address').value,
+          }),
+        });
+        if (res.ok) {
+          alert('Profile updated successfully!');
+          const data = await res.json();
+          localStorage.setItem('user', JSON.stringify(data.user));
+        } else {
+          alert('Failed to update profile');
+        }
+      } catch (err) { alert('Network error'); }
+    }
+
+    async function changePassword(e) {
+      e.preventDefault();
+      const newPwd = document.getElementById('new-password').value;
+      const confirm = document.getElementById('confirm-password').value;
+      if (newPwd !== confirm) { alert('Passwords do not match'); return; }
+
+      const token = localStorage.getItem('token');
+      try {
+        const res = await fetch(`${API_URL}/auth/change-password`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({
+            current_password: document.getElementById('current-password').value,
+            new_password: newPwd,
+          }),
+        });
+        const data = await res.json();
+        if (res.ok) {
+          alert('Password changed successfully!');
+          document.getElementById('password-form').reset();
+        } else {
+          alert(data.error || 'Failed to change password');
+        }
+      } catch (err) { alert('Network error'); }
+    }
+
+    function showTab(tab, el) {
+      document.querySelectorAll('.profile-tab').forEach(t => t.style.display = 'none');
+      document.querySelectorAll('.profile-nav a').forEach(a => a.classList.remove('active'));
+      document.getElementById(`tab-${tab}`).style.display = 'block';
+      el.classList.add('active');
+    }
+
+    function logout() {
+      localStorage.clear();
+      window.location.href = '../index.html';
+    }
+  </script>
+</body>
+</html>

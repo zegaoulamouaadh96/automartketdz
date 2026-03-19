@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Seller Dashboard - AutoMarket DZ</title>
+  <link rel="stylesheet" href="css/dashboard.css">
+</head>
+<body>
+  <div class="dashboard-layout">
+    <aside class="sidebar" id="sidebar"></aside>
+
+    <div class="main-content">
+      <div class="topbar">
+        <h1>📊 Dashboard</h1>
+        <div class="topbar-actions">
+          <span id="seller-name"></span>
+        </div>
+      </div>
+
+      <div class="page-content">
+        <div class="stats-grid" id="stats-grid">
+          <div class="stat-card">
+            <div class="stat-icon orange">📦</div>
+            <h3 id="stat-products">0</h3>
+            <p>Total Products</p>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon blue">🛒</div>
+            <h3 id="stat-orders">0</h3>
+            <p>Total Orders</p>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon green">💰</div>
+            <h3 id="stat-revenue">0 DA</h3>
+            <p>Total Revenue</p>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon red">⭐</div>
+            <h3 id="stat-rating">0</h3>
+            <p>Store Rating</p>
+          </div>
+        </div>
+
+        <div class="table-container">
+          <div class="table-header">
+            <h3>Recent Orders</h3>
+            <a href="orders.html" class="btn btn-outline btn-sm">View All</a>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Order #</th>
+                <th>Customer</th>
+                <th>Total</th>
+                <th>Status</th>
+                <th>Date</th>
+              </tr>
+            </thead>
+            <tbody id="recent-orders">
+              <tr><td colspan="5" class="text-center">Loading...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/dashboard.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      if (!checkAuth()) return;
+      document.getElementById('sidebar').innerHTML = renderSidebar('dashboard');
+      const user = getUser();
+      document.getElementById('seller-name').textContent = `${user.first_name} ${user.last_name}`;
+      loadDashboard();
+    });
+
+    async function loadDashboard() {
+      // Load stats
+      const statsRes = await apiRequest('/stores/my/stats');
+      if (statsRes && statsRes.ok) {
+        const s = statsRes.data.stats;
+        document.getElementById('stat-products').textContent = s.total_products;
+        document.getElementById('stat-revenue').textContent = formatPrice(s.total_revenue);
+        document.getElementById('stat-rating').textContent = s.avg_rating;
+        let totalOrders = 0;
+        if (s.orders_by_status) {
+          s.orders_by_status.forEach(o => totalOrders += parseInt(o.count));
+        }
+        document.getElementById('stat-orders').textContent = totalOrders;
+      }
+
+      // Load recent orders
+      const ordersRes = await apiRequest('/orders/store?limit=5');
+      if (ordersRes && ordersRes.ok) {
+        const tbody = document.getElementById('recent-orders');
+        const orders = ordersRes.data.data || [];
+        if (orders.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:30px;color:#64748B;">No orders yet</td></tr>';
+          return;
+        }
+        tbody.innerHTML = orders.map(o => `
+          <tr>
+            <td><strong>${o.order_number}</strong></td>
+            <td>${o.buyer_first_name} ${o.buyer_last_name}</td>
+            <td>${formatPrice(o.total)}</td>
+            <td><span class="badge badge-${getStatusBadge(o.status)}">${o.status}</span></td>
+            <td>${formatDate(o.created_at)}</td>
+          </tr>
+        `).join('');
+      }
+    }
+
+    function getStatusBadge(status) {
+      const map = { pending: 'warning', confirmed: 'info', processing: 'info', shipped: 'primary', delivered: 'success', cancelled: 'danger' };
+      return map[status] || 'info';
+    }
+  </script>
+</body>
+</html>

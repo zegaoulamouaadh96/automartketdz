@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Store - AutoMarket DZ</title>
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+  <header class="header">
+    <div class="container">
+      <div class="header-top">
+        <a href="../index.html" class="logo"><span>AUTO</span>MARKET<span> DZ</span></a>
+        <div class="search-bar">
+          <input type="text" id="search-input" placeholder="Search in this store...">
+          <button onclick="handleSearch()">🔍</button>
+        </div>
+        <div class="header-actions" id="auth-links"></div>
+      </div>
+    </div>
+  </header>
+
+  <main class="main-content">
+    <div class="container">
+      <div class="store-header" id="store-header">
+        <div class="store-banner"></div>
+        <div class="store-info-main">
+          <div class="store-logo-large">🏪</div>
+          <div class="store-details">
+            <h1 id="store-name">Loading...</h1>
+            <p id="store-description"></p>
+            <div class="store-meta">
+              <span id="store-location">📍</span>
+              <span id="store-rating">⭐</span>
+              <span id="store-sales">📦</span>
+            </div>
+          </div>
+          <div class="store-actions">
+            <button class="btn-primary" onclick="contactStore()">💬 Contact Store</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-title" style="margin-top:30px;">
+        <h2>Products</h2>
+      </div>
+      <div class="products-grid" id="store-products">
+        <div class="loading">Loading products...</div>
+      </div>
+      <div id="load-more-container" style="text-align:center;margin:20px 0;">
+        <button id="load-more-btn" class="btn-outline" onclick="loadMoreProducts()" style="display:none;">Load More</button>
+      </div>
+
+      <div class="section-title" style="margin-top:30px;">
+        <h2>Reviews</h2>
+      </div>
+      <div id="store-reviews" class="reviews-list">
+        <div class="loading">Loading reviews...</div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="container"><p>&copy; 2026 AutoMarket DZ. All rights reserved.</p></div>
+  </footer>
+
+  <script src="../js/app.js"></script>
+  <script>
+    let storeData = null;
+    let currentPage = 1;
+
+    document.addEventListener('DOMContentLoaded', () => {
+      updateAuthUI();
+      const slug = new URLSearchParams(window.location.search).get('slug') || new URLSearchParams(window.location.search).get('id');
+      if (slug) {
+        loadStore(slug);
+      }
+    });
+
+    async function loadStore(slugOrId) {
+      try {
+        const res = await fetch(`${API_URL}/stores/${slugOrId}`);
+        const data = await res.json();
+        if (res.ok) {
+          storeData = data.store;
+          renderStore(storeData);
+          loadStoreProducts(storeData.id);
+          loadStoreReviews(storeData.id);
+        } else {
+          document.getElementById('store-name').textContent = 'Store not found';
+        }
+      } catch (err) {
+        document.getElementById('store-name').textContent = 'Error loading store';
+      }
+    }
+
+    function renderStore(store) {
+      document.title = `${store.name} - AutoMarket DZ`;
+      document.getElementById('store-name').textContent = store.name;
+      document.getElementById('store-description').textContent = store.description || '';
+      document.getElementById('store-location').textContent = `📍 ${store.wilaya || 'Algeria'}`;
+      document.getElementById('store-rating').textContent = `⭐ ${store.rating || '0'} (${store.total_reviews || 0} reviews)`;
+      document.getElementById('store-sales').textContent = `📦 ${store.total_sales || 0} sales`;
+    }
+
+    async function loadStoreProducts(storeId) {
+      try {
+        const res = await fetch(`${API_URL}/products?store_id=${storeId}&page=${currentPage}&limit=12`);
+        const data = await res.json();
+        const container = document.getElementById('store-products');
+        if (currentPage === 1) container.innerHTML = '';
+
+        if (data.data && data.data.length > 0) {
+          container.innerHTML += data.data.map(product => createProductCard(product)).join('');
+          if (data.pagination && data.pagination.hasNext) {
+            document.getElementById('load-more-btn').style.display = 'inline-block';
+          } else {
+            document.getElementById('load-more-btn').style.display = 'none';
+          }
+        } else if (currentPage === 1) {
+          container.innerHTML = '<p class="text-center">No products found</p>';
+        }
+      } catch (err) {
+        document.getElementById('store-products').innerHTML = '<p class="error">Error loading products</p>';
+      }
+    }
+
+    async function loadStoreReviews(storeId) {
+      try {
+        const res = await fetch(`${API_URL}/reviews/store/${storeId}`);
+        const data = await res.json();
+        const container = document.getElementById('store-reviews');
+        if (data.reviews && data.reviews.length > 0) {
+          container.innerHTML = data.reviews.map(review => `
+            <div class="review-card">
+              <div class="review-header">
+                <strong>${review.first_name} ${review.last_name}</strong>
+                <span class="review-stars">${'⭐'.repeat(review.rating)}</span>
+              </div>
+              <p class="review-comment">${review.comment || ''}</p>
+              <div class="review-date">${new Date(review.created_at).toLocaleDateString('fr-FR')}</div>
+            </div>
+          `).join('');
+        } else {
+          container.innerHTML = '<p style="color:var(--gray);padding:20px;">No reviews yet.</p>';
+        }
+      } catch (err) {
+        document.getElementById('store-reviews').innerHTML = '';
+      }
+    }
+
+    function loadMoreProducts() {
+      currentPage++;
+      if (storeData) loadStoreProducts(storeData.id);
+    }
+
+    function contactStore() {
+      const token = localStorage.getItem('token');
+      if (!token) { window.location.href = 'login.html'; return; }
+      alert('Chat feature - you can now message this store.');
+    }
+
+    function createProductCard(p) {
+      const imageUrl = p.primary_image ? `http://5.135.79.223:3001/uploads${p.primary_image}` : '';
+      const badgeClass = p.condition === 'new' ? 'badge-new' : p.condition === 'used' ? 'badge-used' : 'badge-sale';
+      const badgeText = p.condition === 'new' ? 'New' : p.condition === 'used' ? 'Used' : 'Refurbished';
+      return `
+        <div class="product-card" onclick="window.location.href='product.html?id=${p.id}'">
+          <div class="image">
+            ${imageUrl ? `<img src="${imageUrl}" alt="${p.name}">` : `<span style="font-size:48px;color:#ccc">🔧</span>`}
+            <span class="badge ${badgeClass}">${badgeText}</span>
+          </div>
+          <div class="info">
+            <div class="category">${p.category_name || 'Parts'}</div>
+            <h3>${p.name}</h3>
+            <div class="price">
+              ${formatPrice(p.price)}
+              ${p.original_price ? `<span class="old-price">${formatPrice(p.original_price)}</span>` : ''}
+            </div>
+            <div class="meta">
+              <span class="rating">${renderStars(p.rating || 0)}</span>
+              <span class="location">📍 ${p.store_wilaya || ''}</span>
+            </div>
+          </div>
+          <div class="actions" onclick="event.stopPropagation()">
+            <button class="btn-add-cart" onclick="addToCart({id:'${p.id}',name:'${p.name.replace(/'/g,"\\'")}',price:${p.price},image:'${imageUrl}'})">
+              🛒 Add to Cart
+            </button>
+          </div>
+        </div>`;
+    }
+  </script>
+</body>
+</html>

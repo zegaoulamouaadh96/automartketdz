@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>إدارة المنتجات - AutoMarket DZ</title>
+    <link rel="stylesheet" href="../css/admin.css">
+</head>
+<body>
+<div class="dashboard-layout">
+    <aside class="sidebar"></aside>
+    <main class="main-content">
+        <div class="topbar">
+            <h1>📦 إدارة المنتجات</h1>
+            <div class="topbar-actions">
+                <select id="categoryFilter" class="search-input" onchange="loadProducts(1)">
+                    <option value="">كل الأصناف</option>
+                </select>
+                <select id="sortFilter" class="search-input" onchange="loadProducts(1)">
+                    <option value="newest">الأحدث</option>
+                    <option value="price_asc">السعر: تصاعدي</option>
+                    <option value="price_desc">السعر: تنازلي</option>
+                </select>
+                <input type="text" id="searchInput" class="search-input" placeholder="بحث عن منتج..." oninput="clearTimeout(window._st);window._st=setTimeout(()=>loadProducts(1),400)">
+            </div>
+        </div>
+        <div class="page-content">
+            <div class="table-container">
+                <div class="table-header">
+                    <h3>قائمة المنتجات</h3>
+                    <span id="productTotal" style="font-size:13px;color:var(--gray);"></span>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>المنتج</th>
+                            <th>المتجر</th>
+                            <th>الصنف</th>
+                            <th>السعر</th>
+                            <th>المخزون</th>
+                            <th>الحالة</th>
+                            <th>التقييم</th>
+                            <th>الإجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody id="productsTable"><tr><td colspan="8"><div class="loading-spinner"></div></td></tr></tbody>
+                </table>
+            </div>
+            <div id="pagination"></div>
+        </div>
+    </main>
+</div>
+<div id="productModal" style="display:none;"></div>
+<script src="../js/admin.js"></script>
+<script>
+    const auth = checkAuth();
+    if (auth) { renderSidebar('products'); loadCategories(); loadProducts(1); }
+
+    async function loadCategories() {
+        try {
+            const res = await apiRequest('/categories');
+            const cats = res.data || res.categories || res || [];
+            const sel = document.getElementById('categoryFilter');
+            cats.forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c.id;
+                opt.textContent = `${c.icon || ''} ${c.name}`;
+                sel.appendChild(opt);
+            });
+        } catch (err) { console.error(err); }
+    }
+
+    async function loadProducts(page = 1) {
+        const search = document.getElementById('searchInput').value;
+        const category = document.getElementById('categoryFilter').value;
+        const sort = document.getElementById('sortFilter').value;
+        try {
+            const params = new URLSearchParams({ page, limit: 20, sort });
+            if (search) params.append('search', search);
+            if (category) params.append('category', category);
+            const res = await apiRequest(`/products?${params}`);
+            const products = res.data || res.products || [];
+
+            document.getElementById('productTotal').textContent = `عرض ${products.length} من ${res.pagination?.total || products.length}`;
+
+            document.getElementById('productsTable').innerHTML = products.map(p => {
+                const imgSrc = p.images?.[0] ? getImageUrl(p.images[0]) : '';
+                const stockClass = p.quantity <= 0 ? 'color:var(--danger);font-weight:700;' : p.quantity < 5 ? 'color:var(--warning);font-weight:700;' : '';
+                return `
+                <tr>
+                    <td>
+                        <div style="display:flex;align-items:center;gap:10px;">
+                            <img src="${imgSrc}" onerror="this.style.display='none'" 
+                                 style="width:42px;height:42px;border-radius:8px;object-fit:cover;background:#f1f5f9;" alt="">
+                            <div>
+                                <strong style="display:block;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${p.name}</strong>
+                                <div style="font-size:11px;color:var(--gray)">${p.sku || ''}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td style="font-size:13px;">${p.store_name || '-'}</td>
+                    <td>${p.category_name || '-'}</td>
+                    <td style="font-weight:600;">${formatPrice(p.price)}</td>
+                    <td style="${stockClass}">${p.quantity}${p.quantity <= 0 ? ' ❌' : p.quantity < 5 ? ' ⚠️' : ''}</td>
+                    <td>${p.is_active ? getStatusBadge('active') : getStatusBadge('inactive')}</td>
+                    <td>⭐ ${Number(p.rating || 0).toFixed(1)}</td>
+                    <td>
+                        <div style="display:flex;gap:4px;">
+                            <button class="btn btn-sm btn-outline" onclick="viewProduct('${p.id}')" title="تفاصيل">👁️</button>
+                            <button class="btn btn-sm btn-danger" onclick="deleteProduct('${p.id}')" title="حذف">🗑️</button>
+                        </div>
+                    </td>
+                </tr>`;
+            }).join('');
+
+            if (products.length === 0) showEmpty('productsTable', '📦', 'لا يوجد منتجات', 'لم يتم العثور على منتجات بهذه المعايير');
+            if (res.pagination) renderPagination('pagination', res.pagination, 'loadProducts');
+        } catch (err) {
+            showNotification(err.message, 'error');
+        }
+    }
+
+    async function viewProduct(id) {
+        try {
+            const res = await apiRequest(`/products/${id}`);
+            const p = res.data || res.product || res;
+            const images = p.images || [];
+            const condMap = { new: 'جديد', used: 'مستعمل', refurbished: 'مجدد' };
+            document.getElementById('productModal').style.display = '';
+            document.getElementById('productModal').innerHTML = `
+                <div class="modal-overlay" onclick="closeModal()">
+                    <div class="modal" onclick="event.stopPropagation()" style="max-width:650px;">
+                        <h2 style="display:flex;justify-content:space-between;align-items:center;">
+                            تفاصيل المنتج
+                            <button class="btn btn-sm btn-outline" onclick="closeModal()">✕</button>
+                        </h2>
+                        ${images.length > 0 ? `
+                            <div style="display:flex;gap:8px;overflow-x:auto;padding:8px 0;margin-bottom:16px;">
+                                ${images.map(img => `
+                                    <img src="${getImageUrl(img)}" onerror="this.style.display='none'"
+                                        style="width:80px;height:80px;border-radius:8px;object-fit:cover;flex-shrink:0;border:1px solid var(--border);" alt="">
+                                `).join('')}
+                            </div>
+                        ` : ''}
+                        <div class="detail-row"><span>اسم المنتج</span><span><strong>${p.name}</strong></span></div>
+                        <div class="detail-row"><span>السعر</span><span style="font-weight:700;color:var(--primary);">${formatPrice(p.price)}</span></div>
+                        <div class="detail-row"><span>الكمية في المخزون</span><span>${p.quantity}</span></div>
+                        <div class="detail-row"><span>الحالة</span><span>${condMap[p.condition] || p.condition || '-'}</span></div>
+                        <div class="detail-row"><span>SKU</span><span>${p.sku || '-'}</span></div>
+                        <div class="detail-row"><span>المتجر</span><span>${p.store_name || '-'}</span></div>
+                        <div class="detail-row"><span>الصنف</span><span>${p.category_name || '-'}</span></div>
+                        <div class="detail-row"><span>التقييم</span><span>⭐ ${Number(p.rating || 0).toFixed(1)} (${p.review_count || 0} تقييم)</span></div>
+                        <div class="detail-row"><span>الضمان</span><span>${p.warranty_info || '-'}</span></div>
+                        ${p.description ? `<div style="margin-top:12px;"><label style="font-size:13px;color:var(--gray);display:block;margin-bottom:4px;">الوصف</label><p style="font-size:14px;line-height:1.6;background:var(--gray-light);padding:12px;border-radius:8px;">${p.description}</p></div>` : ''}
+                        <div style="display:flex;gap:10px;margin-top:20px;padding-top:16px;border-top:1px solid var(--border);">
+                            <button class="btn btn-danger" onclick="deleteProduct('${p.id}'); closeModal()">🗑️ حذف المنتج</button>
+                        </div>
+                    </div>
+                </div>`;
+        } catch (err) {
+            showNotification(err.message, 'error');
+        }
+    }
+
+    async function deleteProduct(id) {
+        if (!confirmAction('هل أنت متأكد من حذف هذا المنتج؟ هذا الإجراء لا يمكن التراجع عنه.')) return;
+        try {
+            await apiRequest(`/admin/products/${id}`, { method: 'DELETE' });
+            showNotification('تم حذف المنتج بنجاح');
+            loadProducts();
+        } catch (err) {
+            showNotification(err.message, 'error');
+        }
+    }
+
+    function closeModal() {
+        document.getElementById('productModal').style.display = 'none';
+    }
+</script>
+</body>
+</html>

@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Orders - Seller Dashboard</title>
+  <link rel="stylesheet" href="../css/dashboard.css">
+</head>
+<body>
+  <div class="dashboard-layout">
+    <aside class="sidebar" id="sidebar"></aside>
+    <div class="main-content">
+      <div class="topbar">
+        <h1>🛒 Orders</h1>
+        <div class="topbar-actions">
+          <select id="status-filter" onchange="loadOrders(1)" style="padding:8px 12px;border:1px solid #E2E8F0;border-radius:6px;">
+            <option value="">All Statuses</option>
+            <option value="pending">Pending</option>
+            <option value="confirmed">Confirmed</option>
+            <option value="processing">Processing</option>
+            <option value="shipped">Shipped</option>
+            <option value="delivered">Delivered</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="page-content">
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Order #</th>
+                <th>Customer</th>
+                <th>Items</th>
+                <th>Total</th>
+                <th>Status</th>
+                <th>Date</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="orders-table">
+              <tr><td colspan="7" style="text-align:center;">Loading...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ORDER DETAIL MODAL -->
+  <div class="modal-overlay" id="order-modal" style="display:none;">
+    <div class="modal">
+      <h2>
+        <span id="order-modal-title">Order Details</span>
+        <button onclick="closeOrderModal()" style="background:none;font-size:20px;">✕</button>
+      </h2>
+      <div id="order-detail-content"></div>
+    </div>
+  </div>
+
+  <script src="../js/dashboard.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      if (!checkAuth()) return;
+      document.getElementById('sidebar').innerHTML = renderSidebar('orders');
+      loadOrders();
+    });
+
+    async function loadOrders(page = 1) {
+      const status = document.getElementById('status-filter').value;
+      const url = `/orders/store?page=${page}&limit=20${status ? `&status=${status}` : ''}`;
+      const res = await apiRequest(url);
+      if (res && res.ok) {
+        renderOrders(res.data.data || []);
+      }
+    }
+
+    function renderOrders(orders) {
+      const tbody = document.getElementById('orders-table');
+      if (orders.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;color:#64748B;">No orders found</td></tr>';
+        return;
+      }
+      tbody.innerHTML = orders.map(o => `
+        <tr>
+          <td><strong>${o.order_number}</strong></td>
+          <td>${o.buyer_first_name} ${o.buyer_last_name}<br><small>${o.buyer_phone || ''}</small></td>
+          <td>${o.items ? o.items.length : 0} item(s)</td>
+          <td><strong>${formatPrice(o.total)}</strong></td>
+          <td><span class="badge badge-${getStatusBadge(o.status)}">${o.status}</span></td>
+          <td>${formatDate(o.created_at)}</td>
+          <td>
+            <button class="btn btn-outline btn-sm" onclick="viewOrder('${o.id}')">👁️</button>
+            ${o.status === 'pending' ? `
+              <button class="btn btn-success btn-sm" onclick="updateStatus('${o.id}', 'confirmed')">✓</button>
+              <button class="btn btn-danger btn-sm" onclick="updateStatus('${o.id}', 'cancelled')">✕</button>
+            ` : ''}
+            ${o.status === 'confirmed' ? `
+              <button class="btn btn-primary btn-sm" onclick="updateStatus('${o.id}', 'processing')">📋</button>
+            ` : ''}
+            ${o.status === 'processing' ? `
+              <button class="btn btn-primary btn-sm" onclick="updateStatus('${o.id}', 'shipped')">🚚</button>
+            ` : ''}
+            ${o.status === 'shipped' ? `
+              <button class="btn btn-success btn-sm" onclick="updateStatus('${o.id}', 'delivered')">✅</button>
+            ` : ''}
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    function getStatusBadge(status) {
+      const map = { pending: 'warning', confirmed: 'info', processing: 'info', shipped: 'primary', delivered: 'success', cancelled: 'danger' };
+      return map[status] || 'info';
+    }
+
+    async function viewOrder(id) {
+      const res = await apiRequest(`/orders/${id}`);
+      if (res && res.ok) {
+        const o = res.data.order;
+        document.getElementById('order-modal-title').textContent = `Order #${o.order_number}`;
+        document.getElementById('order-detail-content').innerHTML = `
+          <div style="margin-bottom:15px;">
+            <p><strong>Status:</strong> <span class="badge badge-${getStatusBadge(o.status)}">${o.status}</span></p>
+            <p><strong>Date:</strong> ${formatDate(o.created_at)}</p>
+            <p><strong>Payment:</strong> ${o.payment_method || 'N/A'} - ${o.payment_status || 'pending'}</p>
+          </div>
+          <h4>Shipping</h4>
+          <p>${o.shipping_name || ''}<br>${o.shipping_phone || ''}<br>${o.shipping_address || ''}<br>${o.shipping_wilaya || ''}</p>
+          <h4 style="margin-top:15px;">Items</h4>
+          <table style="margin-top:10px;">
+            <thead><tr><th>Product</th><th>Price</th><th>Qty</th><th>Total</th></tr></thead>
+            <tbody>
+              ${o.items ? o.items.map(i => `
+                <tr>
+                  <td>${i.product_name}</td>
+                  <td>${formatPrice(i.product_price)}</td>
+                  <td>${i.quantity}</td>
+                  <td>${formatPrice(i.total)}</td>
+                </tr>
+              `).join('') : ''}
+            </tbody>
+          </table>
+          <div style="text-align:right;margin-top:10px;font-size:18px;">
+            <strong>Total: ${formatPrice(o.total)}</strong>
+          </div>
+        `;
+        document.getElementById('order-modal').style.display = 'flex';
+      }
+    }
+
+    function closeOrderModal() {
+      document.getElementById('order-modal').style.display = 'none';
+    }
+
+    async function updateStatus(id, status) {
+      const confirmMsg = {
+        confirmed: 'Confirm this order?',
+        processing: 'Start processing this order?',
+        shipped: 'Mark this order as shipped?',
+        delivered: 'Mark this order as delivered?',
+        cancelled: 'Cancel this order?',
+      };
+      if (!confirm(confirmMsg[status] || 'Update status?')) return;
+
+      const res = await apiRequest(`/orders/${id}/status`, {
+        method: 'PUT',
+        body: JSON.stringify({ status }),
+      });
+      if (res && res.ok) {
+        showNotification(`Order ${status}`);
+        loadOrders();
+      } else {
+        showNotification('Failed to update order', 'danger');
+      }
+    }
+  </script>
+</body>
+</html>

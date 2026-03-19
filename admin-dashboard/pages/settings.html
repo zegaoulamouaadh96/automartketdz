@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>إعدادات النظام - AutoMarket DZ</title>
+    <link rel="stylesheet" href="../css/admin.css">
+    <style>
+        .settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+        @media (max-width: 900px) { .settings-grid { grid-template-columns: 1fr; } }
+        .settings-card { background: var(--white); border-radius: var(--radius); box-shadow: var(--shadow); padding: 24px; }
+        .settings-card h3 { font-size: 16px; margin-bottom: 20px; padding-bottom: 12px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px; }
+        .toggle-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border); }
+        .toggle-row:last-child { border-bottom: none; }
+        .toggle-label { font-size: 14px; }
+        .toggle-label p { font-size: 12px; color: var(--gray); margin-top: 2px; }
+        .toggle-switch { position: relative; width: 46px; height: 24px; flex-shrink: 0; }
+        .toggle-switch input { opacity: 0; width: 0; height: 0; }
+        .toggle-slider {
+            position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+            background: #CBD5E1; border-radius: 24px; transition: .3s;
+        }
+        .toggle-slider:before {
+            position: absolute; content: ""; height: 18px; width: 18px;
+            left: 3px; bottom: 3px; background: white; border-radius: 50%; transition: .3s;
+        }
+        .toggle-switch input:checked + .toggle-slider { background: var(--primary); }
+        .toggle-switch input:checked + .toggle-slider:before { transform: translateX(22px); }
+
+        .stat-badge { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 20px; font-size: 13px; font-weight: 600; }
+        .stat-badge.online { background: #D1FAE5; color: #065F46; }
+        .stat-badge.offline { background: #FEE2E2; color: #991B1B; }
+
+        .announcement-box {
+            background: linear-gradient(135deg, var(--primary-light), #FFF7ED);
+            border: 1px solid var(--primary-light);
+            border-radius: var(--radius);
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+        .announcement-box p { font-size: 14px; color: var(--dark); margin-bottom: 8px; }
+        .announcement-box .meta { font-size: 12px; color: var(--gray); }
+
+        .export-btn {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 14px 16px; border: 1px solid var(--border); border-radius: var(--radius);
+            margin-bottom: 10px; background: var(--white); cursor: pointer;
+            transition: all 0.2s; font-size: 14px;
+        }
+        .export-btn:hover { border-color: var(--primary); background: #FFF7ED; }
+        .export-btn .icon { font-size: 20px; }
+
+        .system-info-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 14px; }
+        .system-info-row:last-child { border-bottom: none; }
+        .system-info-row span:first-child { color: var(--gray); }
+        .system-info-row span:last-child { font-weight: 600; }
+    </style>
+</head>
+<body>
+<div class="dashboard-layout">
+    <aside class="sidebar"></aside>
+    <main class="main-content">
+        <div class="topbar">
+            <h1>⚙️ إعدادات النظام</h1>
+            <button class="btn btn-primary" onclick="saveAllSettings()">💾 حفظ جميع الإعدادات</button>
+        </div>
+        <div class="page-content">
+
+            <!-- ===== SECTION 1: General Settings ===== -->
+            <div class="settings-grid" style="margin-bottom:24px;">
+                <div class="settings-card">
+                    <h3>🌐 الإعدادات العامة</h3>
+                    <div class="form-group">
+                        <label>اسم الموقع</label>
+                        <input type="text" id="siteName" value="AutoMarket DZ" class="form-control" style="width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:6px;font-size:14px;">
+                    </div>
+                    <div class="form-group">
+                        <label>البريد الإلكتروني للتواصل</label>
+                        <input type="email" id="contactEmail" value="contact@automarket.dz" style="width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:6px;font-size:14px;">
+                    </div>
+                    <div class="form-group">
+                        <label>رقم الهاتف</label>
+                        <input type="tel" id="contactPhone" value="+213 555 000 000" style="width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:6px;font-size:14px;">
+                    </div>
+                    <div class="form-group">
+                        <label>العنوان</label>
+                        <input type="text" id="contactAddress" value="الجزائر العاصمة، الجزائر" style="width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:6px;font-size:14px;">
+                    </div>
+                    <div class="form-group">
+                        <label>الحد الأقصى لعدد المنتجات المميزة</label>
+                        <input type="number" id="featuredLimit" value="8" min="1" max="50" style="width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:6px;font-size:14px;">
+                    </div>
+                </div>
+
+                <div class="settings-card">
+                    <h3>⚡ التحكم في النظام</h3>
+                    <div class="toggle-row">
+                        <div class="toggle-label">
+                            <strong>وضع الصيانة</strong>
+                            <p>إيقاف الموقع مؤقتاً للزوار</p>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="maintenanceMode" onchange="handleMaintenanceToggle(this)">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="toggle-row">
+                        <div class="toggle-label">
+                            <strong>التسجيل مفتوح</strong>
+                            <p>السماح للمستخدمين الجدد بالتسجيل</p>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="registrationOpen" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="toggle-row">
+                        <div class="toggle-label">
+                            <strong>الموافقة التلقائية للمتاجر</strong>
+                            <p>قبول المتاجر الجديدة تلقائياً</p>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="autoApproveStores">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="toggle-row">
+                        <div class="toggle-label">
+                            <strong>التقييمات مفعّلة</strong>
+                            <p>السماح للمستخدمين بكتابة تقييمات</p>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="reviewsEnabled" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="toggle-row">
+                        <div class="toggle-label">
+                            <strong>الدردشة مفعّلة</strong>
+                            <p>تفعيل نظام المراسلة بين المستخدمين</p>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="chatEnabled" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="toggle-row">
+                        <div class="toggle-label">
+                            <strong>عروض الموردين</strong>
+                            <p>إظهار منتجات الموردين في البحث</p>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="supplierListings" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===== SECTION 2: Commission & Finance ===== -->
+            <div class="settings-grid" style="margin-bottom:24px;">
+                <div class="settings-card">
+                    <h3>💰 إعدادات العمولات</h3>
+                    <div class="form-group">
+                        <label>عمولة المنصة على المبيعات (%)</label>
+                        <input type="number" id="commissionRate" value="5" min="0" max="50" step="0.5"
+                            style="width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:6px;font-size:14px;">
+                    </div>
+                    <div class="form-group">
+                        <label>الحد الأدنى للسحب (دج)</label>
+                        <input type="number" id="minWithdrawal" value="5000" min="0"
+                            style="width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:6px;font-size:14px;">
+                    </div>
+                    <div class="form-group">
+                        <label>أقصى رسوم شحن (دج)</label>
+                        <input type="number" id="maxShippingFee" value="500" min="0"
+                            style="width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:6px;font-size:14px;">
+                    </div>
+                    <div class="form-group">
+                        <label>طرق الدفع المتاحة</label>
+                        <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px;">
+                            <label style="display:flex;align-items:center;gap:8px;font-size:14px;font-weight:normal;">
+                                <input type="checkbox" id="payDOD" checked> الدفع عند الاستلام (COD)
+                            </label>
+                            <label style="display:flex;align-items:center;gap:8px;font-size:14px;font-weight:normal;">
+                                <input type="checkbox" id="payCCP" checked> CCP
+                            </label>
+                            <label style="display:flex;align-items:center;gap:8px;font-size:14px;font-weight:normal;">
+                                <input type="checkbox" id="payBaridi" checked> بريدي موب
+                            </label>
+                            <label style="display:flex;align-items:center;gap:8px;font-size:14px;font-weight:normal;">
+                                <input type="checkbox" id="payBank" checked> تحويل بنكي
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="settings-card">
+                    <h3>📣 الإعلانات والتنبيهات</h3>
+                    <div id="announcements-list" style="margin-bottom:16px;">
+                        <!-- loaded dynamically -->
+                    </div>
+                    <div style="background:var(--gray-light);border-radius:var(--radius);padding:16px;">
+                        <h4 style="font-size:14px;margin-bottom:12px;">إضافة إعلان جديد</h4>
+                        <div class="form-group">
+                            <label>النص</label>
+                            <textarea id="announcementText" rows="2"
+                                style="width:100%;padding:10px;border:1px solid var(--border);border-radius:6px;font-size:14px;resize:none;"
+                                placeholder="أدخل نص الإعلان..."></textarea>
+                        </div>
+                        <div style="display:flex;gap:8px;">
+                            <select id="announcementType" style="flex:1;padding:8px 12px;border:1px solid var(--border);border-radius:6px;font-size:14px;">
+                                <option value="info">معلومات</option>
+                                <option value="warning">تحذير</option>
+                                <option value="success">نجاح</option>
+                                <option value="danger">خطر</option>
+                            </select>
+                            <button class="btn btn-primary" onclick="addAnnouncement()">+ إضافة</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===== SECTION 3: Limits & Moderation ===== -->
+            <div class="settings-grid" style="margin-bottom:24px;">
+                <div class="settings-card">
+                    <h3>📐 حدود المحتوى</h3>
+                    <div class="form-group">
+                        <label>أقصى عدد صور للمنتج</label>
+                        <input type="number" id="maxProductImages" value="10" min="1" max="30"
+                            style="width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:6px;font-size:14px;">
+                    </div>
+                    <div class="form-group">
+                        <label>أقصى حجم الصورة (MB)</label>
+                        <input type="number" id="maxImageSizeMB" value="10" min="1" max="50"
+                            style="width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:6px;font-size:14px;">
+                    </div>
+                    <div class="form-group">
+                        <label>أقصى عدد منتجات لكل متجر</label>
+                        <input type="number" id="maxProductsPerStore" value="500" min="10"
+                            style="width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:6px;font-size:14px;">
+                    </div>
+                    <div class="form-group">
+                        <label>مدة انتهاء الطلبات بلا تأكيد (أيام)</label>
+                        <input type="number" id="orderExpiryDays" value="7" min="1" max="30"
+                            style="width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:6px;font-size:14px;">
+                    </div>
+                    <div class="toggle-row">
+                        <div class="toggle-label">
+                            <strong>تفعيل فلترة المحتوى التلقائية</strong>
+                            <p>حظر الكلمات والمحتوى غير اللائق</p>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="contentFilter" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="settings-card">
+                    <h3>🔔 إعدادات الإشعارات</h3>
+                    <div class="toggle-row">
+                        <div class="toggle-label">
+                            <strong>إشعار طلب جديد</strong>
+                            <p>إرسال بريد إلكتروني للبائع</p>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="notifyNewOrder" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="toggle-row">
+                        <div class="toggle-label">
+                            <strong>إشعار تقييم جديد</strong>
+                            <p>إخطار البائع بالتقييمات</p>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="notifyNewReview" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="toggle-row">
+                        <div class="toggle-label">
+                            <strong>إشعار مستخدم جديد</strong>
+                            <p>إرسال ترحيب بالبريد الإلكتروني</p>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="notifyNewUser" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="toggle-row">
+                        <div class="toggle-label">
+                            <strong>إشعار بلاغ جديد</strong>
+                            <p>تنبيه المشرفين بالبلاغات</p>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="notifyNewReport" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="form-group" style="margin-top:16px;">
+                        <label>بريد المشرف للإشعارات</label>
+                        <input type="email" id="adminNotifyEmail" value="admin@automarket.dz"
+                            style="width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:6px;font-size:14px;">
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===== SECTION 4: Export & System Info ===== -->
+            <div class="settings-grid">
+                <div class="settings-card">
+                    <h3>📥 تصدير البيانات</h3>
+                    <p style="font-size:13px;color:var(--gray);margin-bottom:16px;">تصدير بيانات النظام كملفات CSV للتحليل والأرشفة.</p>
+                    <button class="export-btn" onclick="exportData('users')">
+                        <span><span class="icon">👥</span> تصدير بيانات المستخدمين</span>
+                        <span style="font-size:12px;color:var(--gray);">CSV ↓</span>
+                    </button>
+                    <button class="export-btn" onclick="exportData('stores')">
+                        <span><span class="icon">🏪</span> تصدير بيانات المتاجر</span>
+                        <span style="font-size:12px;color:var(--gray);">CSV ↓</span>
+                    </button>
+                    <button class="export-btn" onclick="exportData('products')">
+                        <span><span class="icon">📦</span> تصدير بيانات المنتجات</span>
+                        <span style="font-size:12px;color:var(--gray);">CSV ↓</span>
+                    </button>
+                    <button class="export-btn" onclick="exportData('orders')">
+                        <span><span class="icon">🛒</span> تصدير بيانات الطلبات</span>
+                        <span style="font-size:12px;color:var(--gray);">CSV ↓</span>
+                    </button>
+                    <button class="export-btn" onclick="exportData('reports')">
+                        <span><span class="icon">⚠️</span> تصدير البلاغات</span>
+                        <span style="font-size:12px;color:var(--gray);">CSV ↓</span>
+                    </button>
+                </div>
+
+                <div class="settings-card">
+                    <h3>🖥️ معلومات النظام</h3>
+                    <div id="system-info">
+                        <div class="system-info-row">
+                            <span>نسخة النظام</span>
+                            <span>v1.0.0</span>
+                        </div>
+                        <div class="system-info-row">
+                            <span>حالة قاعدة البيانات</span>
+                            <span id="dbStatus"><span class="stat-badge online">⚡ متصل</span></span>
+                        </div>
+                        <div class="system-info-row">
+                            <span>حالة API</span>
+                            <span id="apiStatus"><span class="stat-badge online">✅ يعمل</span></span>
+                        </div>
+                        <div class="system-info-row">
+                            <span>إجمالي حجم الملفات</span>
+                            <span id="storageSize">جاري الحساب...</span>
+                        </div>
+                        <div class="system-info-row">
+                            <span>آخر نسخ احتياطية</span>
+                            <span id="lastBackup">-</span>
+                        </div>
+                        <div class="system-info-row">
+                            <span>تاريخ آخر تعديل للإعدادات</span>
+                            <span id="lastSettingsUpdate">-</span>
+                        </div>
+                    </div>
+
+                    <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border);">
+                        <h4 style="font-size:14px;margin-bottom:12px;color:var(--danger);">⚠️ منطقة الخطر</h4>
+                        <div style="display:flex;flex-direction:column;gap:8px;">
+                            <button class="btn btn-outline" style="border-color:var(--warning);color:var(--warning);" onclick="clearCache()">
+                                🗑️ مسح الكاش
+                            </button>
+                            <button class="btn btn-outline" style="border-color:var(--danger);color:var(--danger);" onclick="confirmReset()">
+                                🔄 إعادة تعيين الإعدادات
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+</div>
+
+<script src="../js/admin.js"></script>
+<script>
+    const auth = checkAuth();
+    if (auth) {
+        renderSidebar('settings');
+        loadSettings();
+        checkSystemStatus();
+    }
+
+    // Load settings from API or localStorage fallback
+    async function loadSettings() {
+        try {
+            const res = await apiRequest('/admin/settings').catch(() => null);
+            if (res) applySettings(res.settings || res);
+        } catch (e) {}
+
+        // Load announcements
+        loadAnnouncements();
+
+        // Update last settings date
+        const lastUpdate = localStorage.getItem('lastSettingsUpdate');
+        if (lastUpdate) {
+            document.getElementById('lastSettingsUpdate').textContent = formatDateTime(lastUpdate);
+        }
+    }
+
+    function applySettings(s) {
+        if (!s) return;
+        if (s.site_name) document.getElementById('siteName').value = s.site_name;
+        if (s.contact_email) document.getElementById('contactEmail').value = s.contact_email;
+        if (s.contact_phone) document.getElementById('contactPhone').value = s.contact_phone;
+        if (s.featured_limit !== undefined) document.getElementById('featuredLimit').value = s.featured_limit;
+        if (s.commission_rate !== undefined) document.getElementById('commissionRate').value = s.commission_rate;
+        if (s.min_withdrawal !== undefined) document.getElementById('minWithdrawal').value = s.min_withdrawal;
+        if (s.maintenance_mode !== undefined) document.getElementById('maintenanceMode').checked = s.maintenance_mode;
+        if (s.registration_open !== undefined) document.getElementById('registrationOpen').checked = s.registration_open;
+        if (s.auto_approve_stores !== undefined) document.getElementById('autoApproveStores').checked = s.auto_approve_stores;
+        if (s.reviews_enabled !== undefined) document.getElementById('reviewsEnabled').checked = s.reviews_enabled;
+        if (s.chat_enabled !== undefined) document.getElementById('chatEnabled').checked = s.chat_enabled;
+        if (s.max_product_images !== undefined) document.getElementById('maxProductImages').value = s.max_product_images;
+        if (s.max_image_size_mb !== undefined) document.getElementById('maxImageSizeMB').value = s.max_image_size_mb;
+        if (s.max_products_per_store !== undefined) document.getElementById('maxProductsPerStore').value = s.max_products_per_store;
+        if (s.order_expiry_days !== undefined) document.getElementById('orderExpiryDays').value = s.order_expiry_days;
+        if (s.admin_notify_email) document.getElementById('adminNotifyEmail').value = s.admin_notify_email;
+    }
+
+    async function saveAllSettings() {
+        const settings = {
+            site_name: document.getElementById('siteName').value,
+            contact_email: document.getElementById('contactEmail').value,
+            contact_phone: document.getElementById('contactPhone').value,
+            contact_address: document.getElementById('contactAddress').value,
+            featured_limit: parseInt(document.getElementById('featuredLimit').value),
+            commission_rate: parseFloat(document.getElementById('commissionRate').value),
+            min_withdrawal: parseInt(document.getElementById('minWithdrawal').value),
+            max_shipping_fee: parseInt(document.getElementById('maxShippingFee').value),
+            maintenance_mode: document.getElementById('maintenanceMode').checked,
+            registration_open: document.getElementById('registrationOpen').checked,
+            auto_approve_stores: document.getElementById('autoApproveStores').checked,
+            reviews_enabled: document.getElementById('reviewsEnabled').checked,
+            chat_enabled: document.getElementById('chatEnabled').checked,
+            supplier_listings: document.getElementById('supplierListings').checked,
+            max_product_images: parseInt(document.getElementById('maxProductImages').value),
+            max_image_size_mb: parseInt(document.getElementById('maxImageSizeMB').value),
+            max_products_per_store: parseInt(document.getElementById('maxProductsPerStore').value),
+            order_expiry_days: parseInt(document.getElementById('orderExpiryDays').value),
+            content_filter: document.getElementById('contentFilter').checked,
+            notify_new_order: document.getElementById('notifyNewOrder').checked,
+            notify_new_review: document.getElementById('notifyNewReview').checked,
+            notify_new_user: document.getElementById('notifyNewUser').checked,
+            notify_new_report: document.getElementById('notifyNewReport').checked,
+            admin_notify_email: document.getElementById('adminNotifyEmail').value,
+            payment_methods: {
+                cash_on_delivery: document.getElementById('payDOD').checked,
+                ccp: document.getElementById('payCCP').checked,
+                baridimob: document.getElementById('payBaridi').checked,
+                bank_transfer: document.getElementById('payBank').checked,
+            },
+        };
+
+        try {
+            await apiRequest('/admin/settings', {
+                method: 'PUT',
+                body: JSON.stringify(settings)
+            });
+            localStorage.setItem('lastSettingsUpdate', new Date().toISOString());
+            document.getElementById('lastSettingsUpdate').textContent = formatDateTime(new Date().toISOString());
+            showNotification('تم حفظ الإعدادات بنجاح');
+        } catch (err) {
+            // Save to localStorage as fallback
+            localStorage.setItem('siteSettings', JSON.stringify(settings));
+            localStorage.setItem('lastSettingsUpdate', new Date().toISOString());
+            document.getElementById('lastSettingsUpdate').textContent = formatDateTime(new Date().toISOString());
+            showNotification('تم حفظ الإعدادات محلياً (الخادم غير متصل)', 'warning');
+        }
+    }
+
+    function handleMaintenanceToggle(checkbox) {
+        if (checkbox.checked) {
+            if (!confirmAction('تفعيل وضع الصيانة سيمنع المستخدمين من الوصول للموقع. هل أنت متأكد؟')) {
+                checkbox.checked = false;
+            }
+        }
+    }
+
+    // Announcements (API-based)
+    async function loadAnnouncements() {
+        const container = document.getElementById('announcements-list');
+        try {
+            const data = await apiRequest('/admin/announcements');
+            const announcements = data.announcements || [];
+            if (announcements.length === 0) {
+                container.innerHTML = '<p style="font-size:13px;color:var(--gray);text-align:center;padding:12px;">لا يوجد إعلانات حالياً</p>';
+                return;
+            }
+            const typeColors = { info: '#DBEAFE', warning: '#FEF3C7', success: '#D1FAE5', danger: '#FEE2E2' };
+            const typeText = { info: '📢', warning: '⚠️', success: '✅', danger: '🚨' };
+            container.innerHTML = announcements.map(a => `
+                <div class="announcement-box" style="background:${typeColors[a.type] || typeColors.info}">
+                    <p>${typeText[a.type] || '📢'} ${a.text}</p>
+                    <div style="display:flex;justify-content:space-between;align-items:center;">
+                        <span class="meta">${formatDateTime(a.created_at)}</span>
+                        <button class="btn btn-sm btn-danger" onclick="deleteAnnouncement('${a.id}')">حذف</button>
+                    </div>
+                </div>
+            `).join('');
+        } catch (err) {
+            container.innerHTML = '<p style="font-size:13px;color:var(--danger);text-align:center;padding:12px;">فشل تحميل الإعلانات</p>';
+        }
+    }
+
+    async function addAnnouncement() {
+        const text = document.getElementById('announcementText').value.trim();
+        if (!text) { showNotification('أدخل نص الإعلان', 'error'); return; }
+        const type = document.getElementById('announcementType').value;
+        try {
+            await apiRequest('/admin/announcements', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text, type }),
+            });
+            document.getElementById('announcementText').value = '';
+            loadAnnouncements();
+            showNotification('تم إضافة الإعلان');
+        } catch (err) {
+            showNotification('فشل إضافة الإعلان: ' + err.message, 'error');
+        }
+    }
+
+    async function deleteAnnouncement(id) {
+        if (!await confirmAction('هل تريد حذف هذا الإعلان؟')) return;
+        try {
+            await apiRequest(`/admin/announcements/${id}`, { method: 'DELETE' });
+            loadAnnouncements();
+            showNotification('تم حذف الإعلان');
+        } catch (err) {
+            showNotification('فشل حذف الإعلان: ' + err.message, 'error');
+        }
+    }
+
+    // Export data
+    async function exportData(type) {
+        try {
+            showNotification(`جاري تصدير ${type}...`, 'warning');
+            const res = await apiRequest(`/admin/${type}?limit=10000`);
+            const items = res.data || res[type] || [];
+            if (items.length === 0) { showNotification('لا توجد بيانات للتصدير', 'error'); return; }
+
+            const headers = Object.keys(items[0]).join(',');
+            const rows = items.map(item =>
+                Object.values(item).map(v => `"${String(v || '').replace(/"/g, '""')}"`).join(',')
+            );
+            const csv = [headers, ...rows].join('\n');
+            const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `automarket_${type}_${new Date().toISOString().split('T')[0]}.csv`;
+            link.click();
+            showNotification(`تم تصدير ${items.length} سجل بنجاح`);
+        } catch (err) {
+            showNotification('فشل التصدير: ' + err.message, 'error');
+        }
+    }
+
+    // System status check
+    async function checkSystemStatus() {
+        try {
+            await apiRequest('/health').catch(() => apiRequest('/categories'));
+            document.getElementById('apiStatus').innerHTML = '<span class="stat-badge online">✅ يعمل</span>';
+            document.getElementById('dbStatus').innerHTML = '<span class="stat-badge online">⚡ متصل</span>';
+        } catch (e) {
+            document.getElementById('apiStatus').innerHTML = '<span class="stat-badge offline">❌ غير متصل</span>';
+            document.getElementById('dbStatus').innerHTML = '<span class="stat-badge offline">❌ غير متصل</span>';
+        }
+        document.getElementById('lastBackup').textContent = localStorage.getItem('lastBackup') || 'لم يتم بعد';
+    }
+
+    function clearCache() {
+        if (!confirmAction('هل تريد مسح الكاش؟ سيتم إعادة تحميل الصفحة.')) return;
+        const keysToKeep = ['token', 'user', 'announcements', 'siteSettings', 'lastSettingsUpdate', 'lastBackup'];
+        const saved = {};
+        keysToKeep.forEach(k => { const v = localStorage.getItem(k); if (v) saved[k] = v; });
+        localStorage.clear();
+        Object.entries(saved).forEach(([k, v]) => localStorage.setItem(k, v));
+        showNotification('تم مسح الكاش بنجاح');
+        setTimeout(() => location.reload(), 1000);
+    }
+
+    function confirmReset() {
+        if (!confirmAction('تحذير: سيتم إعادة تعيين جميع الإعدادات إلى القيم الافتراضية. هل أنت متأكد؟')) return;
+        if (!confirmAction('هذا الإجراء لا يمكن التراجع عنه. تأكيد أخير؟')) return;
+        localStorage.removeItem('siteSettings');
+        localStorage.removeItem('announcements');
+        localStorage.removeItem('lastSettingsUpdate');
+        announcements = [];
+        showNotification('تم إعادة تعيين الإعدادات');
+        setTimeout(() => location.reload(), 1000);
+    }
+</script>
+</body>
+</html>
