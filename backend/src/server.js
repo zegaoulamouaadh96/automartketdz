@@ -134,39 +134,61 @@ app.use('/api/', apiLimiter);
 app.use('/api/auth/login', authLimiter);
 app.use('/api/auth/register', authLimiter);
 
-// Static files
+// Static files - MUST be before API routes
 app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 
-const staticBaseCandidates = [
-  path.resolve(__dirname, '..', '..'),
-  path.resolve(__dirname, '..'),
-];
+// Try multiple possible locations for web assets
+const assetPaths = {
+  web: [
+    path.join(__dirname, '..', '..', 'web'),
+    path.join(__dirname, '..', 'web'),
+    '/app/web',
+  ],
+  seller: [
+    path.join(__dirname, '..', '..', 'seller-dashboard'),
+    path.join(__dirname, '..', 'seller-dashboard'),
+    '/app/seller-dashboard',
+  ],
+  admin: [
+    path.join(__dirname, '..', '..', 'admin-dashboard'),
+    path.join(__dirname, '..', 'admin-dashboard'),
+    '/app/admin-dashboard',
+  ],
+};
 
-const resolveStaticDir = (dirName) => {
-  for (const base of staticBaseCandidates) {
-    const candidate = path.join(base, dirName);
-    if (fs.existsSync(candidate)) {
-      return candidate;
+const findDir = (paths) => {
+  for (const p of paths) {
+    if (fs.existsSync(p)) {
+      console.log(`✓ Found: ${p}`);
+      return p;
     }
   }
+  console.warn(`✗ Not found: ${paths.join(', ')}`);
   return null;
 };
 
-const webDir = resolveStaticDir('web');
+const webDir = findDir(assetPaths.web);
 const webIndexFile = webDir ? path.join(webDir, 'index.html') : null;
-const sellerDashboardDir = resolveStaticDir('seller-dashboard');
-const adminDashboardDir = resolveStaticDir('admin-dashboard');
+const sellerDashboardDir = findDir(assetPaths.seller);
+const adminDashboardDir = findDir(assetPaths.admin);
 
-if (webDir && fs.existsSync(webDir)) {
-  app.use(express.static(webDir));
+// Serve static files from web root (css, js, assets)
+if (webDir) {
+  app.use(express.static(webDir, { 
+    maxAge: '1h',
+    etag: false 
+  }));
+  console.log(`📁 Serving web assets from: ${webDir}`);
 }
 
-if (sellerDashboardDir && fs.existsSync(sellerDashboardDir)) {
+if (sellerDashboardDir) {
   app.use('/seller-dashboard', express.static(sellerDashboardDir));
+  console.log(`📁 Serving seller dashboard from: ${sellerDashboardDir}`);
 }
 
-if (adminDashboardDir && fs.existsSync(adminDashboardDir)) {
+if (adminDashboardDir) {
   app.use('/admin-dashboard', express.static(adminDashboardDir));
+  console.log(`📁 Serving admin dashboard from: ${adminDashboardDir}`);
 }
 
 app.get('/', (req, res) => {
