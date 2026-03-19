@@ -137,25 +137,40 @@ app.use('/api/auth/register', authLimiter);
 // Static files
 app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 
-const webDir = path.join(__dirname, '..', '..', 'web');
-const webIndexFile = path.join(webDir, 'index.html');
-const sellerDashboardDir = path.join(__dirname, '..', '..', 'seller-dashboard');
-const adminDashboardDir = path.join(__dirname, '..', '..', 'admin-dashboard');
+const staticBaseCandidates = [
+  path.resolve(__dirname, '..', '..'),
+  path.resolve(__dirname, '..'),
+];
 
-if (fs.existsSync(webDir)) {
+const resolveStaticDir = (dirName) => {
+  for (const base of staticBaseCandidates) {
+    const candidate = path.join(base, dirName);
+    if (fs.existsSync(candidate)) {
+      return candidate;
+    }
+  }
+  return null;
+};
+
+const webDir = resolveStaticDir('web');
+const webIndexFile = webDir ? path.join(webDir, 'index.html') : null;
+const sellerDashboardDir = resolveStaticDir('seller-dashboard');
+const adminDashboardDir = resolveStaticDir('admin-dashboard');
+
+if (webDir && fs.existsSync(webDir)) {
   app.use(express.static(webDir));
 }
 
-if (fs.existsSync(sellerDashboardDir)) {
+if (sellerDashboardDir && fs.existsSync(sellerDashboardDir)) {
   app.use('/seller-dashboard', express.static(sellerDashboardDir));
 }
 
-if (fs.existsSync(adminDashboardDir)) {
+if (adminDashboardDir && fs.existsSync(adminDashboardDir)) {
   app.use('/admin-dashboard', express.static(adminDashboardDir));
 }
 
 app.get('/', (req, res) => {
-  if (fs.existsSync(webIndexFile)) {
+  if (webIndexFile && fs.existsSync(webIndexFile)) {
     return res.sendFile(webIndexFile);
   }
 
