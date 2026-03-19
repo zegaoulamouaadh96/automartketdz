@@ -72,6 +72,11 @@ async function register(formData) {
   return data;
 }
 
+// Expose auth helpers globally for inline handlers (login.html, register.html)
+window.login = login;
+window.register = register;
+window.logout = logout;
+
 function logout() {
   state.user = null;
   state.token = null;
